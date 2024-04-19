@@ -4,21 +4,9 @@
 
 #include "WFC.h"
 
-WFC::WFC(const std::string_view &inputImage, const size_t &outputSize, const AnalyzerOptions &options) : options(
-        options), rng(std::random_device{}()), status(WFCStatus::PREPARING) {
-
-    this->inputImage = cimg::CImg<unsigned char>(inputImage.data());
-    if (options.patternSize > outputSize) {
-        Logger::log(LogLevel::Warning, "Pattern size cannot be greater than output size");
-    } else {
-        this->outputSize = outputSize;
-    }
-    Logger::log(LogLevel::Info,
-                "Loaded inputImage from " + std::string(inputImage) + " with size " +
-                std::to_string(this->inputImage.width()) + "x" +
-                std::to_string(this->inputImage.height()));
-    Logger::log(LogLevel::Info, "Pattern size set to: " + std::to_string(options.patternSize));
-    Logger::log(LogLevel::Info, "Output size set to: " + std::to_string(outputSize));
+WFC::WFC(const std::string_view &pathToInputImage, const AnalyzerOptions &options) : analyzer(
+        options, pathToInputImage), rng(std::random_device{}()), status(WFCStatus::PREPARING) {
+    Logger::log(LogLevel::Info, "WFC initialized and is ready to start");
 }
 
 bool WFC::prepareWFC(bool savePatterns, const std::string &path) {
@@ -372,7 +360,7 @@ WFC::findMinEntropyPoint(std::vector<std::vector<double>> &entropyMatrix) {
     }
 
     //if no min entropy point found, solution is found
-    if(minPoint.x == -1 && minPoint.y == -1) {
+    if (minPoint.x == -1 && minPoint.y == -1) {
         LogCoeffMatrix();
         status = WFCStatus::SOLUTION;
         return {minPoint, {}};
@@ -380,8 +368,8 @@ WFC::findMinEntropyPoint(std::vector<std::vector<double>> &entropyMatrix) {
 
     //finds all possible points with that min entropy
     std::vector<Point> minEntropyPositions;
-    for(int i = 0; i < entropyMatrix.size(); i++) {
-        for(int j = 0; j < entropyMatrix[i].size(); j++) {
+    for (int i = 0; i < entropyMatrix.size(); i++) {
+        for (int j = 0; j < entropyMatrix[i].size(); j++) {
             if (collapsedTiles[i][j] != -1) {
                 continue;
             }
@@ -529,7 +517,7 @@ void WFC::logRules() const {
 
     // Log the total number of rules for each pattern
     for (size_t i = 0; i < totalRulesPerPattern.size(); i++) {
-        Logger::log(LogLevel::Debug,  "Total number of rules for pattern " + std::to_string(i) + " is " +
+        Logger::log(LogLevel::Debug, "Total number of rules for pattern " + std::to_string(i) + " is " +
                                      std::to_string(totalRulesPerPattern[i]));
     }
 
@@ -616,7 +604,7 @@ void WFC::LogCoeffMatrix() const {
 
     //save the image to a file
     static int index = 0;
-    std::string path =  "../outputs/iterations/iteration" + std::to_string(index) + ".png";
+    std::string path = "../outputs/iterations/iteration" + std::to_string(index) + ".png";
     displayOutputImage(path, 128, 128);
     index++;
 }

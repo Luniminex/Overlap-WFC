@@ -16,5 +16,11 @@ add_executable(WFC main.cpp
         utility/Logger.h
         utility/Timer.cpp
         utility/Timer.h
-        utility/Timer.h)
+        utility/Timer.h
+        wfc/Analyzer.cpp
+        wfc/Analyzer.h
+        wfc/Analyzer.h
+        utility/Point.cpp
+        utility/Point.h
+        utility/Point.h)
 target_link_libraries(WFC PRIVATE PNG::PNG X11::X11)

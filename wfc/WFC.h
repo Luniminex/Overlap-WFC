@@ -10,54 +10,13 @@
 #define WFC_WFC_H
 
 #include <string>
-#include <set>
 #include <queue>
 #include <numeric>
 #include <random>
 #include <iomanip>
 #include <sstream>
 
-#define cimg_use_png
-#define cimg_display_png
-
-#include "../CImg.h"
-#include "../utility/Logger.h"
-#include "../utility/Timer.h"
-
-namespace cimg = cimg_library;
-
-struct Point {
-    int x;
-    int y;
-
-    Point(int x, int y) : x(x), y(y) {};
-
-    bool operator==(const Point &other) const {
-        return x == other.x && y == other.y;
-    }
-
-    Point operator+(const Point &other) const {
-        return {x + other.x, y + other.y};
-    }
-
-    Point operator-(const Point &other) const {
-        return {x - other.x, y - other.y};
-    }
-};
-
-struct PointHash {
-    std::size_t operator()(const Point &p) const {
-        return std::hash<int>()(p.x) ^ std::hash<int>()(p.y);
-    }
-};
-
-struct AnalyzerOptions {
-    int scale;
-    size_t patternSize;
-    int spaceBetween;
-    bool rotate;
-    bool flip;
-};
+#include "Analyzer.h"
 
 enum class WFCStatus {
     RUNNING,
@@ -68,7 +27,7 @@ enum class WFCStatus {
 
 class WFC {
 public:
-    WFC(const std::string_view &inputImage, const size_t &outputSize, const AnalyzerOptions &options);
+    WFC(const std::string_view &pathToInputImage, const AnalyzerOptions &options);
 
     bool prepareWFC(bool savePatterns = false, const std::string &path = "../outputs/patterns/generatedPatterns.png");
 
@@ -131,29 +90,18 @@ private:
 
     void LogCoeffMatrix() const;
 private:
-    AnalyzerOptions options{};
-    //vector of unique extracted from input image
-    std::vector<cimg::CImg<unsigned char>> patterns;
-    //map to store frequency of each pattern
-    std::unordered_map<std::string, int> patternFrequency;
-    //vector of all patterns that store map of their offsets with possible neighbors at that offset
-    std::vector<std::unordered_map<Point, std::set<size_t>, PointHash>> rules;
+    Analyzer analyzer;
+
     //matrix to store possible patterns at each position
     std::vector<std::vector<std::vector<bool>>> coeffMatrix;
     //this is gonna get removed probably in future
     std::vector<std::vector<int>> collapsedTiles;
-    //vector of all offsets
-    std::vector<Point> offsets;
     std::mt19937 rng;
-    cimg::CImg<unsigned char> inputImage;
     cimg::CImg<unsigned char> outputImage;
     //preview of generated patterns
     cimg::CImg<unsigned char> generatedPatternsImage;
     double sumFrequency;
     std::vector<double> probabilities;
-
-    size_t outputSize;
-
     WFCStatus status;
 };
 
