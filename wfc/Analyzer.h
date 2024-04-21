@@ -56,6 +56,7 @@ private:
     std::string patternToStr(const cimg::CImg<unsigned char> &pattern) const;
     void calculateProbabilities();
     std::tuple<size_t, size_t> getPatternGridSize();
+    void LogProbabilities();
 private:
     cimg::CImg<unsigned char> inputImage;
     AnalyzerOptions options;

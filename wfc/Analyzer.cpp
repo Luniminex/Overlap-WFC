@@ -188,18 +188,24 @@ std::string Analyzer::patternToStr(const cimg::CImg<unsigned char> &pattern) con
 }
 
 void Analyzer::calculateProbabilities() {
-    //calculate sum of all frequencies
+    // Calculate sum of all frequencies
     sumFrequency = std::accumulate(patternFrequency.begin(), patternFrequency.end(), 0.0,
                                    [](double acc, const auto &p) {
                                        return acc + p.second;
                                    });
-    //calculate probabilities for each pattern
-    probabilities.resize(patternFrequency.size());
-    auto it = patternFrequency.begin();
-    std::transform(it, patternFrequency.end(), probabilities.begin(),
-                   [this](const auto &pair) {
-                       return static_cast<double>(pair.second) / sumFrequency;
-                   });
+
+    // Resize the probabilities vector to match the size of the patterns vector
+    probabilities.resize(patterns.size());
+
+    // Calculate probabilities for each pattern
+    for (size_t i = 0; i < patterns.size(); ++i) {
+        std::string patternStr = patternToStr(patterns[i]);
+        double frequency = patternFrequency[patternStr];
+        double probability = frequency / sumFrequency;
+        probabilities[i] = probability;
+    }
+
+    LogProbabilities();
 }
 
 void Analyzer::savePatternsPreviewTo(const std::string &path) {
@@ -224,8 +230,9 @@ void Analyzer::savePatternsPreviewTo(const std::string &path) {
                                           resizedPattern);
 
         std::stringstream ss;
+        std::string patternStr = patternToStr(patterns.at(i));
         ss << "#:" << std::to_string(i) <<
-           " F:" << std::to_string(patternFrequency[patternToStr(patterns.at(i))]) <<
+           " F:" << std::to_string(patternFrequency[patternStr]) <<
            " P:" << std::fixed << std::setprecision(2) << probabilities.at(i) * 100 << "%%";
 
         generatedPatternsImage.draw_text(sb + (row * scaledPatternSize) + (sb * row),
@@ -299,4 +306,17 @@ const std::vector<Point> &Analyzer::getOffsets() const {
 
 const Rules &Analyzer::getRules() const {
     return rules;
+}
+
+void Analyzer::LogProbabilities() {
+    //sum up all probabilities
+    double sum = std::accumulate(probabilities.begin(), probabilities.end(), 0.0);
+    Logger::log(LogLevel::Debug, "Sum of all probabilities: " + std::to_string(sum));
+
+    //match pattern to its probability and print it via Logger
+    for (size_t i = 0; i < patterns.size(); ++i) {
+        std::string patternStr = patternToStr(patterns[i]);
+        Logger::log(LogLevel::Debug, "Pattern " + patternStr + " has probability: " +
+                                     std::to_string(probabilities[i]));
+    }
 }

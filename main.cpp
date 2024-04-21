@@ -5,8 +5,8 @@
 int main() {
     //freopen("../output.txt", "w", stdout);
 
-    Logger::setLogLevel(LogLevel::Info);
-    AnalyzerOptions options = {64, 2, 16, true, true, 16};
+    Logger::setLogLevel(LogLevel::Debug);
+    AnalyzerOptions options = {64, 2, 16, true, false, 16};
     Point size = {16, 16};
     WFC wfc("../resources/image.png", options);
     std::cout << wfc.prepareWFC(true) << std::endl;

@@ -137,8 +137,7 @@ double WFC::getShannonEntropy(const Point &p) const {
     for(size_t option = 0; option < coeffMatrix[p.y][p.x].size(); option++) {
         if (coeffMatrix[p.y][p.x][option]) {
             double weight = analyzer.getProbs()[option];
-            sumWeights += weight;
-            sumLogWeights += weight * std::log(weight);
+            sumWeights += weight; sumLogWeights += weight * std::log(weight);
         }
     }
     return std::log(sumWeights) - (sumLogWeights / sumWeights);
