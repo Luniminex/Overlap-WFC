@@ -27,32 +27,11 @@ enum class WFCStatus {
 
 class WFC {
 public:
-    WFC(const std::string_view &pathToInputImage, const AnalyzerOptions &options);
+    WFC(const std::string_view &pathToInputImage, AnalyzerOptions &options);
 
     bool prepareWFC(bool savePatterns = false, const std::string &path = "../outputs/patterns/generatedPatterns.png");
 
 private:
-    bool generatePatterns();
-
-    void addPattern(const cimg::CImg<unsigned char> &pattern);
-
-    std::string patternToStr(const cimg::CImg<unsigned char> &pattern) const;
-
-    //generates preview of generated patterns
-    void generatePatternImagePreview(const std::string &path);
-
-    std::tuple<size_t, size_t> getPatternGridSize();
-
-    void generateOffsets();
-
-    void generateRules();
-
-    void logPrettyPatternData(const cimg::CImg<unsigned char> &pattern) const;
-
-    bool checkForMatch(const cimg::CImg<unsigned char> &p1, const cimg::CImg<unsigned char> &p2, const Point &offset) const;
-
-    cimg::CImg<unsigned char> maskWithOffset(const cimg::CImg<unsigned char> &pattern, const Point &offset) const;
-
     void calculateProbabilities();
 
     void startWFC();
@@ -98,10 +77,6 @@ private:
     std::vector<std::vector<int>> collapsedTiles;
     std::mt19937 rng;
     cimg::CImg<unsigned char> outputImage;
-    //preview of generated patterns
-    cimg::CImg<unsigned char> generatedPatternsImage;
-    double sumFrequency;
-    std::vector<double> probabilities;
     WFCStatus status;
 };
 

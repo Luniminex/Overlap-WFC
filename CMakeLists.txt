@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.27)
+cmake_minimum_required(VERSION 3.22)
 project(WFC)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -23,4 +23,5 @@ add_executable(WFC main.cpp
         utility/Point.cpp
         utility/Point.h
         utility/Point.h)
+
 target_link_libraries(WFC PRIVATE PNG::PNG X11::X11)

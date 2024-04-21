@@ -4,20 +4,17 @@
 
 #include "WFC.h"
 
-WFC::WFC(const std::string_view &pathToInputImage, const AnalyzerOptions &options) : analyzer(
+WFC::WFC(const std::string_view &pathToInputImage, AnalyzerOptions &options) : analyzer(
         options, pathToInputImage), rng(std::random_device{}()), status(WFCStatus::PREPARING) {
     Logger::log(LogLevel::Info, "WFC initialized and is ready to start");
 }
 
 bool WFC::prepareWFC(bool savePatterns, const std::string &path) {
-    bool success = generatePatterns();
-    if (!success) {
-        return false;
-    }
-    generateOffsets();
-    generateRules();
-    logRules();
+    bool success = analyzer.analyze();
+
     //initialize coeff matrix to be outputSize x outputSize x unique patterns count
+    size_t outputSize = analyzer.getOptions().outputSize;
+    const auto &patterns = analyzer.getPatterns();
     coeffMatrix = std::vector<std::vector<std::vector<bool>>>(
             outputSize, std::vector<std::vector<bool>>(
                     outputSize, std::vector<bool>(
@@ -25,210 +22,13 @@ bool WFC::prepareWFC(bool savePatterns, const std::string &path) {
             ));
     //initialize collapsed tiles to be outputSize x outputSize with invalid value
     collapsedTiles = std::vector<std::vector<int>>(outputSize, std::vector<int>(outputSize, -1));
-    calculateProbabilities();
     if (savePatterns) {
-        generatePatternImagePreview(path);
+        analyzer.savePatternsPreviewTo(path);
     }
     startWFC();
     return success;
 }
 
-bool WFC::generatePatterns() {
-    Timer timer("generatePatterns");
-    size_t totalPatterns = 0;
-    for (size_t x = 0; x <= inputImage.width() - options.patternSize; x++) {
-        for (size_t y = 0; y <= inputImage.height() - options.patternSize; y++) {
-            cimg::CImg<unsigned char> pattern = inputImage.get_crop(x, y, x + options.patternSize - 1,
-                                                                    y + options.patternSize - 1);
-            totalPatterns++;
-            addPattern(pattern);
-
-            if (options.flip) {
-                addPattern(pattern.get_mirror('x'));
-                addPattern(pattern.get_mirror('y'));
-                totalPatterns += 2;
-            }
-
-            if (options.rotate) {
-                for (int angle = 90; angle <= 270; angle += 90) {
-                    addPattern(pattern.get_rotate(static_cast<float>(angle)));
-                    totalPatterns += 3;
-                }
-            }
-        }
-    }
-    Logger::log(LogLevel::Info, "Total possible patterns:  " + std::to_string(totalPatterns));
-    Logger::log(LogLevel::Info, "Generated " + std::to_string(patterns.size()) + " patterns");
-
-    return true;
-}
-
-void WFC::addPattern(const cimg::CImg<unsigned char> &pattern) {
-    std::string patternStr = patternToStr(pattern);
-    if (patternFrequency.find(patternStr) == patternFrequency.end()) {
-        patternFrequency[patternStr] = 1;
-        patterns.push_back(pattern);
-    } else {
-        patternFrequency[patternStr]++;
-    }
-}
-
-std::string WFC::patternToStr(const cimg::CImg<unsigned char> &pattern) const {
-    std::string patternKey;
-    patternKey.reserve(pattern.width() * pattern.height() * pattern.spectrum() * 4);
-    for (int x = 0; x < pattern.width(); ++x) {
-        for (int y = 0; y < pattern.height(); ++y) {
-            for (int c = 0; c < pattern.spectrum(); ++c) {
-                patternKey += std::to_string(pattern(x, y, 0, c)) + ",";
-            }
-        }
-    }
-    return patternKey;
-}
-
-void WFC::generatePatternImagePreview(const std::string &path) {
-    Logger::log(LogLevel::Info, "Generating pattern image preview");
-    Timer timer("generatePatternImagePreview");
-    size_t scaledPatternSize = options.scale * options.patternSize;
-    auto [rows, cols] = getPatternGridSize();
-    auto sb = options.spaceBetween;
-    size_t imageSizeWithSpaceX = ((scaledPatternSize + sb) * rows) + sb;
-    size_t imageSizeWithSpaceY = ((scaledPatternSize + sb) * cols) + sb;
-
-    generatedPatternsImage = cimg::CImg<unsigned char>(imageSizeWithSpaceX, imageSizeWithSpaceY, 1, 3, 0);
-    unsigned char color[] = {0, 0, 0}; // white color for the grid
-    generatedPatternsImage.fill(128, 128, 128);
-    for (size_t i = 0; i < patterns.size(); i++) {
-        size_t row = i / cols;
-        size_t col = i % cols;
-        //need to make copy, resize will modify original pattern
-        cimg::CImg<unsigned char> resizedPattern = patterns[i].get_resize(scaledPatternSize, scaledPatternSize);
-        generatedPatternsImage.draw_image(sb + (row * scaledPatternSize) + (sb * row),
-                                          sb + (col * scaledPatternSize) + (sb * col),
-                                          resizedPattern);
-
-
-        std::stringstream ss;
-        ss << "#:" << std::to_string(i) <<
-           " F:" << std::to_string(patternFrequency[patternToStr(patterns.at(i))]) <<
-           " P:" << std::fixed << std::setprecision(2) << probabilities.at(i) * 100 << "%%";
-
-        generatedPatternsImage.draw_text(sb + (row * scaledPatternSize) + (sb * row),
-                                         sb + (col * scaledPatternSize) + (sb * col) + scaledPatternSize,
-                                         ss.str().c_str(), color, 0, 1, 15);
-    }
-
-
-    // Draw grid, prepare it first
-    for (size_t row = 0; row < rows; row++) {
-        for (size_t col = 0; col < cols; col++) {
-            for (size_t i = 0; i <= options.patternSize; i++) {
-                size_t patternIndex = row * cols + col;
-                if (patternIndex >= patterns.size()) {
-                    continue;
-                }
-                cimg::CImg<unsigned char> pattern = patterns[row * cols + col];
-
-                size_t gridOffset = i * options.scale;
-                generatedPatternsImage.draw_line(sb + (row * scaledPatternSize) + (sb * row),
-                                                 sb + (col * scaledPatternSize) + (sb * col) + gridOffset,
-                                                 sb + (row * scaledPatternSize) + (sb * row) + scaledPatternSize,
-                                                 sb + (col * scaledPatternSize) + (sb * col) + gridOffset,
-                                                 color);
-                generatedPatternsImage.draw_line(sb + (row * scaledPatternSize) + (sb * row) + gridOffset,
-                                                 sb + (col * scaledPatternSize) + (sb * col),
-                                                 sb + (row * scaledPatternSize) + (sb * row) + gridOffset,
-                                                 sb + (col * scaledPatternSize) + (sb * col) + scaledPatternSize,
-                                                 color);
-            }
-        }
-    }
-
-    generatedPatternsImage.save_png(path.c_str());
-}
-
-std::tuple<size_t, size_t> WFC::getPatternGridSize() {
-    size_t patternsSize = patterns.size();
-    auto sqrtPatternsCount = static_cast<unsigned int>(std::sqrt(patternsSize));
-    unsigned int rows = sqrtPatternsCount;
-    unsigned int cols = sqrtPatternsCount;
-    while (rows * cols < patternsSize) {
-        if (rows < cols) {
-            rows++;
-        } else {
-            cols++;
-        }
-    }
-    return {rows, cols};
-}
-
-void WFC::generateOffsets() {
-    int size = options.patternSize - 1;
-    offsets.reserve((2 * size + 1) * (2 * size + 1) - 1);
-    for (int i = -size; i <= size; i++) {
-        for (int j = -size; j <= size; j++) {
-            if (i == 0 && j == 0) {
-                continue;
-            }
-            offsets.emplace_back(i, j);
-        }
-    }
-}
-
-void WFC::generateRules() {
-    Timer timer("generateRules");
-    //iterate over all patterns
-    rules.resize(patterns.size());
-    for (size_t i = 0; i < patterns.size(); i++) {
-        // iterate all offsets
-        for (const auto &offset: offsets) {
-            // iterate all patterns again to match against them
-            for (size_t j = i; j < patterns.size(); j++) {
-                if (checkForMatch(patterns[i], patterns[j], offset)) {
-                    rules[i][offset].insert(j);
-                    rules[j][Point(-offset.x, -offset.y)].insert(i);
-                }
-            }
-        }
-    }
-}
-
-bool WFC::checkForMatch(const cimg::CImg<unsigned char> &p1, const cimg::CImg<unsigned char> &p2,
-                        const Point &offset) const {
-    cimg::CImg<unsigned char> p1Offset = maskWithOffset(p1, offset);
-    cimg::CImg<unsigned char> p2Offset = maskWithOffset(p2, Point(-offset.x, -offset.y));
-    return p1Offset == p2Offset;
-}
-
-cimg::CImg<unsigned char> WFC::maskWithOffset(const cimg::CImg<unsigned char> &pattern, const Point &offset) const {
-    //check bounds
-    if (abs(offset.x) > pattern.width() || abs(offset.y) > pattern.height()) {
-        return {};
-    }
-    //logPrettyPatternData(pattern);
-    Point p1 = {std::max(0, offset.x), std::max(0, offset.y)};
-    Point p2 = {std::min(pattern.width() - 1, pattern.width() - 1 + offset.x),
-                std::min(pattern.height() - 1, pattern.height() - 1 + offset.y)};;
-
-    auto crop = pattern.get_crop(p1.x, p1.y, p2.x, p2.y);
-    //logPrettyPatternData(crop);
-    return crop;
-}
-
-void WFC::calculateProbabilities() {
-    //calculate sum of all frequencies
-    sumFrequency = std::accumulate(patternFrequency.begin(), patternFrequency.end(), 0.0,
-                                   [](double acc, const auto &p) {
-                                       return acc + p.second;
-                                   });
-    //calculate probabilities for each pattern
-    probabilities.resize(patternFrequency.size());
-    auto it = patternFrequency.begin();
-    std::transform(it, patternFrequency.end(), probabilities.begin(),
-                   [this](const auto &pair) {
-                       return static_cast<double>(pair.second) / sumFrequency;
-                   });
-}
 
 void WFC::startWFC() {
     Timer timer("startWFC");
@@ -253,7 +53,8 @@ void WFC::startWFC() {
         }
         if (status == WFCStatus::SOLUTION) {
             Logger::log(LogLevel::Info, "Solution found");
-            displayOutputImage("../outputs/solution.png", outputSize * options.scale, outputSize * options.scale);
+            size_t size = analyzer.getOutputSize() * analyzer.getOptions().scale;
+            displayOutputImage("../outputs/solution.png", size, size);
             break;
         }
 
@@ -266,9 +67,9 @@ void WFC::startWFC() {
 
 Point WFC::Observe() {
     //calculate entropy for each cell
-    std::vector<std::vector<double>> entropyMatrix(outputSize, std::vector<double>(outputSize, 0.0));
+    std::vector<std::vector<double>> entropyMatrix(analyzer.getOutputSize(),
+                                                   std::vector<double>(analyzer.getOutputSize(), 0.0));
     fillEntropyMatrix(entropyMatrix);
-
 
     if (!checkForContradiction()) {
         status = WFCStatus::CONTRADICTION;
@@ -290,6 +91,7 @@ Point WFC::Observe() {
 }
 
 void WFC::fillEntropyMatrix(std::vector<std::vector<double>> &entropyMatrix) {
+    size_t outputSize = analyzer.getOutputSize();
     for (size_t i = 0; i < outputSize; ++i) {
         for (size_t j = 0; j < outputSize; ++j) {
             for (size_t k = 0; k < coeffMatrix[i][j].size(); ++k) {
@@ -313,6 +115,7 @@ void WFC::fillEntropyMatrix(std::vector<std::vector<double>> &entropyMatrix) {
 }
 
 bool WFC::checkForContradiction() const {
+    size_t outputSize = analyzer.getOutputSize();
     //if any cell has no possible patterns then there is a contradiction
     for (size_t i = 0; i < outputSize; i++) {
         for (size_t j = 0; j < outputSize; j++) {
@@ -331,9 +134,9 @@ size_t WFC::getEntropy(Point p) const {
 double WFC::getShannonEntropy(const Point &p) const {
     double sumWeights = 0;
     double sumLogWeights = 0;
-    for (size_t option = 0; option < coeffMatrix[p.y][p.x].size(); option++) {
+    for(size_t option = 0; option < coeffMatrix[p.y][p.x].size(); option++) {
         if (coeffMatrix[p.y][p.x][option]) {
-            double weight = probabilities[option];
+            double weight = analyzer.getProbs()[option];
             sumWeights += weight;
             sumLogWeights += weight * std::log(weight);
         }
@@ -389,7 +192,7 @@ WFC::findMinEntropyPoint(std::vector<std::vector<double>> &entropyMatrix) {
     std::vector<double> minEntropyProbabilities(coeffMatrix[minPoint.y][minPoint.x].size());
     for (size_t k = 0; k < coeffMatrix[minPoint.y][minPoint.x].size(); ++k) {
         //if that pattern is possible, get its probability, else set it to 0
-        minEntropyProbabilities[k] = coeffMatrix[minPoint.y][minPoint.x][k] ? probabilities[k] : 0.0;
+        minEntropyProbabilities[k] = coeffMatrix[minPoint.y][minPoint.x][k] ? analyzer.getProbs()[k] : 0.0;
     }
 
     return {minPoint, minEntropyProbabilities};
@@ -415,7 +218,7 @@ WFC::propagate(Point &minEntropyPoint) {
         Point currentPoint = propagationQueue.front();
         propagationQueue.pop_front();
         LogPossibleRulesForPoint(currentPoint);
-        for (auto &offset: offsets) {
+        for (const auto &offset: analyzer.getOffsets()) {
             //get neighbor pos from current pos and offset
             Point neighborPoint = wrapPoint(currentPoint, offset);
 
@@ -451,7 +254,8 @@ std::pair<bool, bool> WFC::updateCell(const Point &current, const Point &neighbo
         if (!currentPatterns[i]) {
             continue;
         }
-        for (const auto &possiblePattern: rules[i][offset]) {
+        auto rules = analyzer.getRules()[i];
+        for (const auto &possiblePattern: rules[offset]) {
             possiblePatternsInOffset[possiblePattern] = true;
         }
     }
@@ -483,6 +287,7 @@ std::pair<bool, bool> WFC::updateCell(const Point &current, const Point &neighbo
 
 Point WFC::wrapPoint(const Point &p, const Point &offset) const {
     Point wrappedPoint = p + offset;
+    auto outputSize = analyzer.getOutputSize();
     if (wrappedPoint.x < 0) {
         wrappedPoint.x = outputSize - 1;
     }
@@ -499,13 +304,16 @@ Point WFC::wrapPoint(const Point &p, const Point &offset) const {
 }
 
 bool WFC::isPointValid(const Point &p) const {
+    auto outputSize = analyzer.getOutputSize();
     return p.x >= 0 && p.y >= 0 && p.x < outputSize && p.y < outputSize;
 }
 
 void WFC::logRules() const {
+    auto &rules = analyzer.getRules();
+    auto &offsets = analyzer.getOffsets();
+    auto &patterns = analyzer.getPatterns();
     // Create a vector to store the total number of rules for each pattern
     std::vector<size_t> totalRulesPerPattern(rules.size(), 0);
-
     // Iterate over all patterns
     for (size_t i = 0; i < rules.size(); i++) {
         // Iterate over all offsets for the current pattern
@@ -538,18 +346,6 @@ void WFC::logRules() const {
                         possiblePatternsStr + "}");
         }
     }
-}
-
-void WFC::logPrettyPatternData(const cimg::CImg<unsigned char> &pattern) const {
-    std::string patternData;
-    for (int x = 0; x < pattern.width(); x++) {
-        patternData += "[ ";
-        for (int y = 0; y < pattern.height(); y++) {
-            patternData += std::to_string(pattern(x, y, 0)) + " ";
-        }
-        patternData += "]\n";
-    }
-    Logger::log(LogLevel::Debug, "Pattern data: \n" + patternData);
 }
 
 void WFC::LogPossibleRulesForPoint(Point point) const {
@@ -611,6 +407,7 @@ void WFC::LogCoeffMatrix() const {
 
 void WFC::displayOutputImage(const std::string &path, int width, int height) const {
     cimg_library::CImg<unsigned char> res(coeffMatrix.size(), coeffMatrix[0].size(), 1, 3, 0);
+    auto &patterns = analyzer.getPatterns();
 
     for (int row = 0; row < coeffMatrix.size(); ++row) {
         for (int col = 0; col < coeffMatrix[row].size(); ++col) {

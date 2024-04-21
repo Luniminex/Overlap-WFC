@@ -39,19 +39,7 @@ bool Analyzer::analyze() {
     generateOffsets();
     generateRules();
     logRules();
-    //initialize coeff matrix to be outputSize x outputSize x unique patterns count
-    coeffMatrix = std::vector<std::vector<std::vector<bool>>>(
-            outputSize, std::vector<std::vector<bool>>(
-                    outputSize, std::vector<bool>(
-                            patterns.size(), True)
-            ));
-    //initialize collapsed tiles to be outputSize x outputSize with invalid value
-    collapsedTiles = std::vector<std::vector<int>>(outputSize, std::vector<int>(outputSize, -1));
     calculateProbabilities();
-    if (savePatterns) {
-        generatePatternImagePreview(path);
-    }
-    startWFC();
     return success;
 }
 
@@ -197,4 +185,118 @@ std::string Analyzer::patternToStr(const cimg::CImg<unsigned char> &pattern) con
         }
     }
     return patternKey;
+}
+
+void Analyzer::calculateProbabilities() {
+    //calculate sum of all frequencies
+    sumFrequency = std::accumulate(patternFrequency.begin(), patternFrequency.end(), 0.0,
+                                   [](double acc, const auto &p) {
+                                       return acc + p.second;
+                                   });
+    //calculate probabilities for each pattern
+    probabilities.resize(patternFrequency.size());
+    auto it = patternFrequency.begin();
+    std::transform(it, patternFrequency.end(), probabilities.begin(),
+                   [this](const auto &pair) {
+                       return static_cast<double>(pair.second) / sumFrequency;
+                   });
+}
+
+void Analyzer::savePatternsPreviewTo(const std::string &path) {
+    Logger::log(LogLevel::Info, "Generating pattern image preview");
+    Timer timer("savePatternsPreviewTo");
+    size_t scaledPatternSize = options.scale * options.patternSize;
+    auto [rows, cols] = getPatternGridSize();
+    auto sb = options.spaceBetween;
+    size_t imageSizeWithSpaceX = ((scaledPatternSize + sb) * rows) + sb;
+    size_t imageSizeWithSpaceY = ((scaledPatternSize + sb) * cols) + sb;
+
+    auto generatedPatternsImage = cimg::CImg<unsigned char>(imageSizeWithSpaceX, imageSizeWithSpaceY, 1, 3, 0);
+    unsigned char color[] = {0, 0, 0}; // white color for the grid
+    generatedPatternsImage.fill(128, 128, 128);
+    for (size_t i = 0; i < patterns.size(); i++) {
+        size_t row = i / cols;
+        size_t col = i % cols;
+        //need to make copy, resize will modify original pattern
+        cimg::CImg<unsigned char> resizedPattern = patterns[i].get_resize(scaledPatternSize, scaledPatternSize);
+        generatedPatternsImage.draw_image(sb + (row * scaledPatternSize) + (sb * row),
+                                          sb + (col * scaledPatternSize) + (sb * col),
+                                          resizedPattern);
+
+        std::stringstream ss;
+        ss << "#:" << std::to_string(i) <<
+           " F:" << std::to_string(patternFrequency[patternToStr(patterns.at(i))]) <<
+           " P:" << std::fixed << std::setprecision(2) << probabilities.at(i) * 100 << "%%";
+
+        generatedPatternsImage.draw_text(sb + (row * scaledPatternSize) + (sb * row),
+                                         sb + (col * scaledPatternSize) + (sb * col) + scaledPatternSize,
+                                         ss.str().c_str(), color, 0, 1, 15);
+    }
+
+
+    // Draw grid, prepare it first
+    for (size_t row = 0; row < rows; row++) {
+        for (size_t col = 0; col < cols; col++) {
+            for (size_t i = 0; i <= options.patternSize; i++) {
+                size_t patternIndex = row * cols + col;
+                if (patternIndex >= patterns.size()) {
+                    continue;
+                }
+                cimg::CImg<unsigned char> pattern = patterns[row * cols + col];
+
+                size_t gridOffset = i * options.scale;
+                generatedPatternsImage.draw_line(sb + (row * scaledPatternSize) + (sb * row),
+                                                 sb + (col * scaledPatternSize) + (sb * col) + gridOffset,
+                                                 sb + (row * scaledPatternSize) + (sb * row) + scaledPatternSize,
+                                                 sb + (col * scaledPatternSize) + (sb * col) + gridOffset,
+                                                 color);
+                generatedPatternsImage.draw_line(sb + (row * scaledPatternSize) + (sb * row) + gridOffset,
+                                                 sb + (col * scaledPatternSize) + (sb * col),
+                                                 sb + (row * scaledPatternSize) + (sb * row) + gridOffset,
+                                                 sb + (col * scaledPatternSize) + (sb * col) + scaledPatternSize,
+                                                 color);
+            }
+        }
+    }
+
+    generatedPatternsImage.save_png(path.c_str());
+}
+
+std::tuple<size_t, size_t> Analyzer::getPatternGridSize() {
+    size_t patternsSize = patterns.size();
+    auto sqrtPatternsCount = static_cast<unsigned int>(std::sqrt(patternsSize));
+    unsigned int rows = sqrtPatternsCount;
+    unsigned int cols = sqrtPatternsCount;
+    while (rows * cols < patternsSize) {
+        if (rows < cols) {
+            rows++;
+        } else {
+            cols++;
+        }
+    }
+    return {rows, cols};
+}
+
+const AnalyzerOptions &Analyzer::getOptions() const {
+    return options;
+}
+
+const std::vector<cimg::CImg<unsigned char>> &Analyzer::getPatterns() const {
+    return patterns;
+}
+
+size_t Analyzer::getOutputSize() const {
+    return options.outputSize;
+}
+
+const std::vector<double>& Analyzer::getProbs() const {
+    return probabilities;
+}
+
+const std::vector<Point> &Analyzer::getOffsets() const {
+    return offsets;
+}
+
+const Rules &Analyzer::getRules() const {
+    return rules;
 }
