@@ -12,6 +12,7 @@
 class Timer {
 public:
     Timer(const std::string_view& function_name);
+    void getCurrent();
     ~Timer();
 private:
     std::string function_name;

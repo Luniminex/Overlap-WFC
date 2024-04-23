@@ -357,9 +357,9 @@ void WFC::LogPossibleRulesForPoint(Point point) const {
     }
 
     // Log the chosen pattern
-    Logger::log(LogLevel::Debug,
+    /*Logger::log(LogLevel::Debug,
                 "Possible patterns at point (" + std::to_string(point.x) + ", " + std::to_string(point.y) + ") is [ " +
-                possiblePetternsStr + "] ");
+                possiblePetternsStr + "] ");*/
 
     //iterate over all offsets
     /* for (const auto &offset: offsets) {
