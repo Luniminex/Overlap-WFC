@@ -88,6 +88,15 @@ void Analyzer::generateOffsets() {
 
 void Analyzer::generateRules() {
     Timer timer("generateRules");
+
+    rules.resize(patterns.size());
+    //initilaize all rules with empty sets so its then easier to work with
+    /*for (size_t i = 0; i < patterns.size(); i++) {
+        for (const auto &offset: offsets) {
+            rules[i][offset] = std::set<size_t>();
+        }
+    }*/
+
     //iterate over all patterns
     rules.resize(patterns.size());
     for (size_t i = 0; i < patterns.size(); i++) {
@@ -97,8 +106,11 @@ void Analyzer::generateRules() {
             for (size_t j = i; j < patterns.size(); j++) {
                 if (checkForMatch(patterns[i], patterns[j], offset)) {
                     rules[i][offset].insert(j);
-                    rules[j][Point(-offset.x, -offset.y)].insert(i);
+                    rules[j][{-offset.x, -offset.y}].insert(i);
                 }
+            }
+            if (rules[i][offset].empty()) {
+                Logger::log(LogLevel::Info, "No rule found for pattern " + std::to_string(i) + " at offset (" + std::to_string(offset.x) + ", " + std::to_string(offset.y) + ")");
             }
         }
     }

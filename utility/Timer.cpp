@@ -17,8 +17,10 @@ Timer::~Timer() {
     Logger::log(LogLevel::Info, "Finished " + std::string(function_name) + " in " + std::to_string(duration.count()) + "s");
 }
 
-void Timer::getCurrent() {
+std::chrono::duration<double> Timer::getCurrent() {
     this->end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = this->end - this->start;
-    Logger::log(LogLevel::Info, "Current time of " + std::string(function_name) + " is " + std::to_string(duration.count()) + "s");
+    Logger::log(LogLevel::Info,
+                "Current time of " + std::string(function_name) + " is " + std::to_string(duration.count()) + "s");
+    return duration;
 }
