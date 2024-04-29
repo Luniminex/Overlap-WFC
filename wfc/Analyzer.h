@@ -20,14 +20,12 @@
 
 namespace cimg = cimg_library;
 
-
 struct AnalyzerOptions {
-    int scale;
     size_t patternSize;
+    int previewImgScale;
     int spaceBetween;
     bool rotate;
     bool flip;
-    size_t outputSize;
 };
 
 using Rules =  std::vector<std::unordered_map<Point, std::set<size_t>, PointHash>>;
@@ -40,12 +38,13 @@ public:
     const AnalyzerOptions& getOptions() const;
     const std::vector<cimg::CImg<unsigned char>>& getPatterns() const;
     void savePatternsPreviewTo(const std::string &path);
-    size_t getOutputSize() const;
     const std::vector<double>& getProbs() const;
     const std::vector<Point>& getOffsets() const;
     const Rules& getRules() const;
+
+    void setOptions(const AnalyzerOptions &options);
+
 private:
-    bool checkPatternSize();
     bool generatePatterns();
     void generateOffsets();
     void generateRules();

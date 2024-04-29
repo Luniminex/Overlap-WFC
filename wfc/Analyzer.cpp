@@ -9,26 +9,20 @@ Analyzer::Analyzer(AnalyzerOptions &options, const std::string_view pathToInputI
 options(options)
 {
     this->inputImage = cimg::CImg<unsigned char>(pathToInputImage.data());
-    checkPatternSize();
     Logger::log(LogLevel::Info,
                 "Loaded pathToInputImage from " + std::string(pathToInputImage) + " with size " +
                 std::to_string(this->inputImage.width()) + "x" +
                 std::to_string(this->inputImage.height()));
 
     Logger::log(LogLevel::Info, "Pattern size set to: " + std::to_string(options.patternSize));
-    Logger::log(LogLevel::Info, "Output size set to: " + std::to_string(options.outputSize));
+}
+
+void Analyzer::setOptions(const AnalyzerOptions &options) {
+    this->options = options;
 }
 
 const cimg::CImg<unsigned char>& Analyzer::getInputImage() const {
     return inputImage;
-}
-
-bool Analyzer::checkPatternSize() {
-    if (options.patternSize > options.outputSize) {
-        Logger::log(LogLevel::Warning, "Pattern size cannot be greater than output size");
-        return false;
-    }
-    return true;
 }
 
 bool Analyzer::analyze() {
@@ -88,21 +82,14 @@ void Analyzer::generateOffsets() {
 
 void Analyzer::generateRules() {
     Timer timer("generateRules");
-
     rules.resize(patterns.size());
-    //initilaize all rules with empty sets so its then easier to work with
-    /*for (size_t i = 0; i < patterns.size(); i++) {
-        for (const auto &offset: offsets) {
-            rules[i][offset] = std::set<size_t>();
-        }
-    }*/
 
     //iterate over all patterns
     rules.resize(patterns.size());
     for (size_t i = 0; i < patterns.size(); i++) {
-        // iterate all offsets
+        //iterate all offsets
         for (const auto &offset: offsets) {
-            // iterate all patterns again to match against them
+            //iterate all patterns again to match against them
             for (size_t j = i; j < patterns.size(); j++) {
                 if (checkForMatch(patterns[i], patterns[j], offset)) {
                     rules[i][offset].insert(j);
@@ -128,30 +115,24 @@ cimg::CImg<unsigned char> Analyzer::maskWithOffset(const cimg::CImg<unsigned cha
     if (abs(offset.x) > pattern.width() || abs(offset.y) > pattern.height()) {
         return {};
     }
-    //logPrettyPatternData(pattern);
     Point p1 = {std::max(0, offset.x), std::max(0, offset.y)};
     Point p2 = {std::min(pattern.width() - 1, pattern.width() - 1 + offset.x),
                 std::min(pattern.height() - 1, pattern.height() - 1 + offset.y)};;
 
     auto crop = pattern.get_crop(p1.x, p1.y, p2.x, p2.y);
-    //logPrettyPatternData(crop);
     return crop;
 }
 
 void Analyzer::logRules() {
-// Create a vector to store the total number of rules for each pattern
     std::vector<size_t> totalRulesPerPattern(rules.size(), 0);
 
-    // Iterate over all patterns
     for (size_t i = 0; i < rules.size(); i++) {
-        // Iterate over all offsets for the current pattern
         for (const auto &rule: rules[i]) {
-            // Increment the counter for the current pattern by the number of rules at the current offset
             totalRulesPerPattern[i] += rule.second.size();
         }
     }
 
-    // Log the total number of rules for each pattern
+    //log the total number of rules for each pattern
     for (size_t i = 0; i < totalRulesPerPattern.size(); i++) {
         Logger::log(LogLevel::Debug, "Total number of rules for pattern " + std::to_string(i) + " is " +
                                      std::to_string(totalRulesPerPattern[i]));
@@ -200,16 +181,16 @@ std::string Analyzer::patternToStr(const cimg::CImg<unsigned char> &pattern) con
 }
 
 void Analyzer::calculateProbabilities() {
-    // Calculate sum of all frequencies
+    //calculate sum of all frequencies
     sumFrequency = std::accumulate(patternFrequency.begin(), patternFrequency.end(), 0.0,
                                    [](double acc, const auto &p) {
                                        return acc + p.second;
                                    });
 
-    // Resize the probabilities vector to match the size of the patterns vector
+    //resize the probabilities vector to match the size of the patterns vector
     probabilities.resize(patterns.size());
 
-    // Calculate probabilities for each pattern
+    //calculate probabilities for each pattern
     for (size_t i = 0; i < patterns.size(); ++i) {
         std::string patternStr = patternToStr(patterns[i]);
         double frequency = patternFrequency[patternStr];
@@ -223,7 +204,7 @@ void Analyzer::calculateProbabilities() {
 void Analyzer::savePatternsPreviewTo(const std::string &path) {
     Logger::log(LogLevel::Info, "Generating pattern image preview");
     Timer timer("savePatternsPreviewTo");
-    size_t scaledPatternSize = options.scale * options.patternSize;
+    size_t scaledPatternSize = options.previewImgScale * options.patternSize;
     auto [rows, cols] = getPatternGridSize();
     auto sb = options.spaceBetween;
     size_t imageSizeWithSpaceX = ((scaledPatternSize + sb) * rows) + sb;
@@ -263,7 +244,7 @@ void Analyzer::savePatternsPreviewTo(const std::string &path) {
                 }
                 cimg::CImg<unsigned char> pattern = patterns[row * cols + col];
 
-                size_t gridOffset = i * options.scale;
+                size_t gridOffset = i * options.previewImgScale;
                 generatedPatternsImage.draw_line(sb + (row * scaledPatternSize) + (sb * row),
                                                  sb + (col * scaledPatternSize) + (sb * col) + gridOffset,
                                                  sb + (row * scaledPatternSize) + (sb * row) + scaledPatternSize,
@@ -302,10 +283,6 @@ const AnalyzerOptions &Analyzer::getOptions() const {
 
 const std::vector<cimg::CImg<unsigned char>> &Analyzer::getPatterns() const {
     return patterns;
-}
-
-size_t Analyzer::getOutputSize() const {
-    return options.outputSize;
 }
 
 const std::vector<double>& Analyzer::getProbs() const {
