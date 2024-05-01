@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
             ("c,failed", "Failed output image path",
              cxxopts::value<std::string>()->default_value("../outputs/failed-solution.png"
              ))
-            ("help", "CLI for running WFC algorithm");
+            ("h,help", "CLI for running WFC algorithm");
 
     auto result = options.parse(argc, argv);
 
@@ -43,6 +43,9 @@ int main(int argc, char *argv[]) {
     } else {
         Logger::setLogLevel(LogLevel::Info);
     }
+
+    std::string option_value = result["option_name"].as<std::string>();
+    freopen(option_value.c_str(), "w", stdout);
 
     AnalyzerOptions analyzerOptions = {
             static_cast<size_t>(result["pattern"].as<int>()),
