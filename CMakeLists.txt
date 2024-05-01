@@ -41,5 +41,5 @@ add_executable(WFC_optimized main.cpp
 
 target_link_libraries(WFC_optimized PRIVATE PNG::PNG X11::X11)
 
-# Set optimization flags for the optimized target
+#set optimization flags for the optimized target
 target_compile_options(WFC_optimized PRIVATE -O3)
