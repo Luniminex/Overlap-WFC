@@ -24,7 +24,6 @@ void Backtracker::push(const State &state) {
 }
 
 State Backtracker::draw() {
-    Logger::log(LogLevel::Info, "States left: " + std::to_string(states.size()));
     if (states.empty()) {
         return {};
     }

@@ -26,11 +26,19 @@ enum class WFCStatus {
     PREPARING,
 };
 
+struct WFCSavePaths {
+    std::string generatedPatternsPath;
+    std::string outputImagePath;
+    std::string failedOutputImagePath;
+    std::string iterationsDir;
+};
+
 class WFC {
 public:
     WFC(const std::string_view &pathToInputImage, AnalyzerOptions &options, BacktrackerOptions &backtrackerOptions, size_t width, size_t height);
-    bool prepareWFC(bool savePatterns = false, const std::string &path = "../outputs/patterns/generatedPatterns.png");
-    bool startWFC(bool saveIterations = false, const std::string &dir = "../outputs/iterations/");
+    bool prepareWFC(bool savePatterns = false);
+    bool startWFC(bool saveIterations = false);
+    void setSavePaths(const WFCSavePaths &paths);
     void setAnalyzerOptions(const AnalyzerOptions &options);
     void enableBacktracker();
     void disableBacktracker();
@@ -54,12 +62,12 @@ private:
     Analyzer analyzer;
     Backtracker backtracker;
     State state;
-    std::mt19937 rng;
-    WFCStatus status;
     cimg::CImg<unsigned char> outputImage;
+    std::mt19937 rng;
+    WFCSavePaths savePaths;
+    WFCStatus status;
     size_t outWidth;
     size_t outHeight;
 };
-
 
 #endif //WFC_WFC_H

@@ -10,9 +10,15 @@ WFC::WFC(const std::string_view &pathToInputImage, AnalyzerOptions &options, Bac
         analyzer(options, pathToInputImage),
         backtracker(backtrackerOptions),
         rng(std::random_device{}()),
+        savePaths({
+                          "../outputs/patterns/generated-patterns.png",
+                          "../outputs/solution.png",
+                          "../outputs/failed-solution.png",
+                          "../outputs/iterations/"
+                  }),
         status(WFCStatus::PREPARING) {
-    this->outWidth = width;
-    this->outHeight = height;
+    outWidth = width;
+    outHeight = height;
     state.iteration = 0;
     Logger::log(LogLevel::Info, "WFC initialized and is ready to start");
 }
@@ -33,27 +39,30 @@ void WFC::setBacktrackerOptions(const BacktrackerOptions &options) {
     backtracker.setOptions(options);
 }
 
-bool WFC::prepareWFC(bool savePatterns, const std::string &path) {
+bool WFC::prepareWFC(bool savePatterns) {
     bool success = analyzer.analyze();
 
     //initialize coeff matrix to be outputSize x outputSize x unique patterns count
-    const auto &patterns = analyzer.getPatterns();
     logState();
     state.state = std::vector<std::vector<std::vector<bool>>>(
             outHeight, std::vector<std::vector<bool>>(
                     outWidth, std::vector<bool>(
-                            patterns.size(), true)
+                            analyzer.getPatterns().size(), true)
             ));
     logState();
     //initialize collapsed tiles to be outputSize x outputSize with invalid value
     state.collapsed = std::vector<std::vector<int>>(outHeight, std::vector<int>(outWidth, -1));
     if (savePatterns) {
-        analyzer.savePatternsPreviewTo(path);
+        analyzer.savePatternsPreviewTo(savePaths.generatedPatternsPath);
     }
     return success;
 }
 
-bool WFC::startWFC(bool saveIterations, const std::string &dir) {
+void WFC::setSavePaths(const WFCSavePaths &paths) {
+    savePaths = paths;
+}
+
+bool WFC::startWFC(bool saveIterations) {
     Timer timer("startWFC");
     status = WFCStatus::RUNNING;
     size_t globalIterations = 0;
@@ -67,13 +76,13 @@ bool WFC::startWFC(bool saveIterations, const std::string &dir) {
             std::vector<std::vector<double>> entropyMatrix(outHeight,
                                                            std::vector<double>(outWidth, 0.0));
             fillEntropyMatrix(entropyMatrix);
-            displayOutputImage("../outputs/failed-solution.png");
+            displayOutputImage(savePaths.failedOutputImagePath);
             break;
         }
 
         if (status == WFCStatus::SOLUTION) {
             Logger::log(LogLevel::Info, "Solution found");
-            displayOutputImage("../outputs/solution.png");
+            displayOutputImage(savePaths.outputImagePath);
             break;
         }
 
@@ -85,7 +94,7 @@ bool WFC::startWFC(bool saveIterations, const std::string &dir) {
 
         if (saveIterations) {
             displayOutputImage(
-                    dir + "g" + std::to_string(globalIterations) + "_l" +
+                    savePaths.iterationsDir + "g" + std::to_string(globalIterations) + "_l" +
                     std::to_string(state.iteration) +
                     ".png");
         }
@@ -117,7 +126,6 @@ Point WFC::Observe() {
     //log entropy matrix
     logEntropyMatrix(entropyMatrix);
     fillEntropyMatrix(entropyMatrix);
-    Logger::log(LogLevel::Debug, "filled entropy");
 
     Logger::log(LogLevel::Debug, "checking contradiction");
     if (!checkForContradiction()) {
@@ -148,8 +156,6 @@ Point WFC::Observe() {
         }
         Logger::log(LogLevel::Debug, "found, starting to collapse");
         collapseCell(minEntropyPoint, minEntropyProbabilities);
-        observeTime += timer.getCurrent();
-        Logger::log(LogLevel::Debug, "Total observe time:" + std::to_string(observeTime.count()) + "s");
     }
     return minEntropyPoint;
 }
@@ -160,13 +166,7 @@ void WFC::fillEntropyMatrix(std::vector<std::vector<double>> &entropyMatrix) {
             //log which for which point its checking
             Logger::log(LogLevel::Debug,
                         "calculating entropy for point: " + std::to_string(j) + " " + std::to_string(i));
-            try {
-                entropyMatrix[i][j] = getShannonEntropy({static_cast<int>(j), static_cast<int>(i)});
-            } catch (const std::out_of_range &e) {
-                Logger::log(LogLevel::Debug, "Out of range exception caught: " + std::string(e.what()));
-                //log point
-                Logger::log(LogLevel::Debug, "Point: " + std::to_string(j) + " " + std::to_string(i));
-            }
+            entropyMatrix[i][j] = getShannonEntropy({static_cast<int>(j), static_cast<int>(i)});
             /*for (size_t k = 0; k < coeffMatrix[i][j].size(); ++k) {
                 if (coeffMatrix[i][j][k]) {
                     entropyMatrix[i][j] += probabilities[k];
@@ -202,22 +202,13 @@ bool WFC::checkForContradiction() const {
 double WFC::getShannonEntropy(const Point &p) const {
     double sumWeights = 0;
     double sumLogWeights = 0;
-    try {
-        for (size_t option = 0; option < state.state.at(p.y).at(p.x).size(); option++) {
-            try {
-                if (state.state.at(p.y).at(p.x).at(option)) {
-                    double weight = analyzer.getProbs().at(option);
-                    sumWeights += weight;
-                    sumLogWeights += weight * std::log(weight);
-                }
-            }
-            catch (const std::out_of_range &e) {
-                Logger::log(LogLevel::Debug, "Out of range exception caught: " + std::string(e.what()));
-            }
+    for (size_t option = 0; option < state.state.at(p.y).at(p.x).size(); option++) {
+        if (state.state.at(p.y).at(p.x).at(option)) {
+            double weight = analyzer.getProbs().at(option);
+            sumWeights += weight;
+            sumLogWeights += weight * std::log(weight);
         }
-    }
-    catch (const std::out_of_range &e) {
-        Logger::log(LogLevel::Debug, "Out of range exception caught: " + std::string(e.what()));
+
     }
     if (sumWeights == 0) {
         return 0;
@@ -299,9 +290,6 @@ void WFC::collapseCell(const Point &p, std::vector<double> &probabilities) {
     for (size_t i = 0; i < state.state[p.y][p.x].size(); i++) {
         state.state[p.y][p.x][i] = (i == chosenPattern);
     }
-    collapseTime += timer.getCurrent();
-    Logger::log(LogLevel::Debug, "Total collapse time:" + std::to_string(collapseTime.count()) + "s");
-
 }
 
 void
@@ -312,7 +300,6 @@ WFC::propagate(Point &minEntropyPoint) {
     std::set<Point> visited;
     propagationQueue.push_back(minEntropyPoint);
     visited.insert(minEntropyPoint);
-    size_t propagations_count = 0;
     while (!propagationQueue.empty()) {
         Point currentPoint = propagationQueue.front();
         propagationQueue.pop_front();
@@ -337,13 +324,11 @@ WFC::propagate(Point &minEntropyPoint) {
                 }
             }
         }
-        propagations_count++;
     }
-    propagationTime += timer.getCurrent();
-    Logger::log(LogLevel::Debug, "Total propagation time:" + std::to_string(propagationTime.count()) + "s");
 }
 
-std::pair<bool, bool> WFC::updateCell(const Point &current, const Point &neighbour, const Point &offset) {
+std::pair<bool, bool>
+WFC::updateCell(const Point &current, const Point &neighbour, const Point &offset) {
     //patterns for current and neighbour cell
     std::vector<bool> &currentPatterns = state.state[current.y][current.x];
     std::vector<bool> &neighbourPatterns = state.state[neighbour.y][neighbour.x];
@@ -354,15 +339,10 @@ std::pair<bool, bool> WFC::updateCell(const Point &current, const Point &neighbo
             continue;
         }
         const auto &rules = analyzer.getRules().at(i);
-        try {
-            for (const auto &possiblePattern: rules.at(offset)) {
-                possiblePatternsInOffset[possiblePattern] = true;
-            }
-        } catch (const std::out_of_range &e) {
-            Logger::log(LogLevel::Error, "Out of range exception caught: " + std::string(e.what()));
+        for (const auto &possiblePattern: rules.at(offset)) {
+            possiblePatternsInOffset[possiblePattern] = true;
         }
     }
-
 
     //multiply the target cell by possible patterns form original cell
     std::vector<bool> updatedCell(state.state[current.y][current.x].size());
@@ -391,8 +371,8 @@ std::pair<bool, bool> WFC::updateCell(const Point &current, const Point &neighbo
 
 Point WFC::wrapPoint(const Point &p, const Point &offset) const {
     Point wrappedPoint = p + offset;
-    wrappedPoint.x = (wrappedPoint.x + outWidth) % outWidth;
-    wrappedPoint.y = (wrappedPoint.y + outHeight) % outHeight;
+    wrappedPoint.x = (wrappedPoint.x + static_cast<int>(outWidth)) % static_cast<int>(outWidth);
+    wrappedPoint.y = (wrappedPoint.y + static_cast<int>(outHeight)) % static_cast<int>(outHeight);
     return wrappedPoint;
 }
 
@@ -406,14 +386,14 @@ void WFC::displayOutputImage(const std::string &path) const {
         return;
     }
 
+    //i had the height and weight switched for god knows how long and god damn it took me so long to fix this
     cimg_library::CImg<unsigned char> res(outWidth, outHeight, 1, 3, 0);
     for (int y = 0; y < outHeight; y++) {
         for (int x = 0; x < outWidth; x++) {
             std::vector<cimg_library::CImg<unsigned char>> validPatterns;
             for (int pattern = 0; pattern < analyzer.getPatterns().size(); pattern++) {
                 if (state.state.at(y).at(x).at(pattern)) {
-                    auto ptrn = analyzer.getPatterns().at(pattern);
-                    validPatterns.emplace_back(ptrn);
+                    validPatterns.emplace_back(analyzer.getPatterns().at(pattern));
                 }
             }
             if (!validPatterns.empty()) {
@@ -449,11 +429,11 @@ void WFC::logEntropyMatrix(const std::vector<std::vector<double>> &entropyMatrix
 
 void WFC::logState() {
     std::stringstream ss;
-    for (size_t i = 0; i < state.state.size(); i++) {
+    for (auto &i: state.state) {
         ss << "[ ";
-        for (size_t j = 0; j < state.state[i].size(); j++) {
+        for (const auto &j: i) {
             ss << " ";
-            ss << state.state[i][j].size();
+            ss << j.size();
         }
         ss << " ] ";
         ss << "\n";

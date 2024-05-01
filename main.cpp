@@ -8,7 +8,7 @@ int main() {
     Logger::setLogLevel(LogLevel::Debug);
     AnalyzerOptions analyzerOptions = {3, 64, 16, true, true};
     BacktrackerOptions backtrackerOptions = {100, 3, true};
-    WFC wfc("../resources/Flowers.png", analyzerOptions, backtrackerOptions, 80, 160);
+    WFC wfc("../resources/Flowers.png", analyzerOptions, backtrackerOptions, 8, 16);
     if(wfc.prepareWFC(true)){
         Logger::log(LogLevel::Info, "WFC prepared successfully");
         wfc.startWFC(true);

@@ -10,25 +10,23 @@ bool Point::operator==(const Point &other) const {
     return x == other.x && y == other.y;
 }
 
+Point Point::operator+(const Point &other) const {
+    return Point(x + other.x, y + other.y);
+}
+
 bool Point::operator!=(const Point &other) const {
     return !(*this == other);
 }
 
-Point Point::operator+(const Point &other) const {
-    return {x + other.x, y + other.y};
-}
-
 Point Point::operator-(const Point &other) const {
-    return {x - other.x, y - other.y};
+    return Point(x - other.x, y - other.y);
 }
 
 bool Point::operator<(const Point &other) const {
-    if (x == other.x) {
-        return y < other.y;
-    }
-    return x < other.x;
+    return x < other.x || (x == other.x && y < other.y);
 }
 
 std::size_t PointHash::operator()(const Point &p) const {
-    return std::hash<int>()(p.x) ^ std::hash<int>()(p.y);
+    std::hash<int> hash_fn;
+    return hash_fn(p.x) ^ (hash_fn(p.y) << 1);
 }
