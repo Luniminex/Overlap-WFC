@@ -126,9 +126,8 @@ Point WFC::Observe() {
             if (!backtracker.isBacktracking()) {
                 backtracker.setLastIteration(state.iteration + 1);
             }
-            logState();
+            Logger::log(LogLevel::Debug, "Drawing from backtracker");
             state = backtracker.draw();
-            logState();
             if (!backtracker.isAbleToBacktrack()) {
                 status = WFCStatus::CONTRADICTION;
             }
@@ -392,18 +391,8 @@ std::pair<bool, bool> WFC::updateCell(const Point &current, const Point &neighbo
 
 Point WFC::wrapPoint(const Point &p, const Point &offset) const {
     Point wrappedPoint = p + offset;
-    if (wrappedPoint.x < 0) {
-        wrappedPoint.x = static_cast<int>(outWidth) - 1;
-    }
-    if (wrappedPoint.y < 0) {
-        wrappedPoint.y = static_cast<int>(outHeight) - 1;
-    }
-    if (wrappedPoint.x >= outWidth) {
-        wrappedPoint.x = 0;
-    }
-    if (wrappedPoint.y >= outHeight) {
-        wrappedPoint.y = 0;
-    }
+    wrappedPoint.x = (wrappedPoint.x + outWidth) % outWidth;
+    wrappedPoint.y = (wrappedPoint.y + outHeight) % outHeight;
     return wrappedPoint;
 }
 
@@ -417,37 +406,33 @@ void WFC::displayOutputImage(const std::string &path) const {
         return;
     }
 
-    try {
-        cimg_library::CImg<unsigned char> res(state.state.size(), state.state.at(0).size(), 1, 3, 0);
-        auto &patterns = analyzer.getPatterns();
-        for (int row = 0; row < state.state.size(); row++) {
-            for (int col = 0; col < state.state.at(row).size(); col++) {
-                std::vector<cimg_library::CImg<unsigned char>> validPatterns;
-                for (int pattern = 0; pattern < patterns.size(); pattern++) {
-                    if (state.state.at(row).at(col).at(pattern)) {
-                        validPatterns.emplace_back(patterns[pattern]);
-                    }
-                }
-                if (!validPatterns.empty()) {
-                    cimg_library::CImg<unsigned char> meanPattern = validPatterns[0];
-                    if (validPatterns.size() > 1) {
-                        for (size_t i = 1; i < validPatterns.size(); i++) {
-                            meanPattern += validPatterns[i];
-                        }
-                    }
-                    meanPattern /= validPatterns.size();
-
-                    res(col, row, 0) = meanPattern(0, 0, 0);
-                    res(col, row, 1) = meanPattern(0, 0, 1);
-                    res(col, row, 2) = meanPattern(0, 0, 2);
+    cimg_library::CImg<unsigned char> res(outWidth, outHeight, 1, 3, 0);
+    for (int y = 0; y < outHeight; y++) {
+        for (int x = 0; x < outWidth; x++) {
+            std::vector<cimg_library::CImg<unsigned char>> validPatterns;
+            for (int pattern = 0; pattern < analyzer.getPatterns().size(); pattern++) {
+                if (state.state.at(y).at(x).at(pattern)) {
+                    auto ptrn = analyzer.getPatterns().at(pattern);
+                    validPatterns.emplace_back(ptrn);
                 }
             }
+            if (!validPatterns.empty()) {
+                cimg_library::CImg<unsigned char> meanPattern = validPatterns[0];
+                if (validPatterns.size() > 1) {
+                    for (size_t i = 1; i < validPatterns.size(); i++) {
+                        meanPattern += validPatterns[i];
+                    }
+                }
+                meanPattern /= validPatterns.size();
+
+                res(x, y, 0) = meanPattern(0, 0, 0);
+                res(x, y, 1) = meanPattern(0, 0, 1);
+                res(x, y, 2) = meanPattern(0, 0, 2);
+            }
         }
-        res.resize(static_cast<int>(outWidth), static_cast<int>(outHeight), 1, 3, 1);
-        res.save_png(path.c_str());
-    } catch (std::exception &e) {
-        Logger::log(LogLevel::Error, "Exception caught: " + std::string(e.what()));
     }
+    res.resize(static_cast<int>(outWidth), static_cast<int>(outHeight), 1, 3, 1);
+    res.save_png(path.c_str());
 }
 
 void WFC::logEntropyMatrix(const std::vector<std::vector<double>> &entropyMatrix) const {

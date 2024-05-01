@@ -6,9 +6,9 @@ int main() {
     freopen("../output.txt", "w", stdout);
 
     Logger::setLogLevel(LogLevel::Debug);
-    AnalyzerOptions options = {3, 64, 16, true, true};
+    AnalyzerOptions analyzerOptions = {3, 64, 16, true, true};
     BacktrackerOptions backtrackerOptions = {100, 3, true};
-    WFC wfc("../resources/Flowers.png", options, backtrackerOptions, 4, 8);
+    WFC wfc("../resources/Flowers.png", analyzerOptions, backtrackerOptions, 80, 160);
     if(wfc.prepareWFC(true)){
         Logger::log(LogLevel::Info, "WFC prepared successfully");
         wfc.startWFC(true);

@@ -10,9 +10,9 @@ Backtracker::Backtracker() {
     states = std::deque<std::pair<State, size_t>>();
 }
 
-Backtracker::Backtracker(BacktrackerOptions options) {
-    this->options = options;
+Backtracker::Backtracker(BacktrackerOptions options) : options(options) {
     lastIteration = 0;
+    backtracking = false;
     states = std::deque<std::pair<State, size_t>>();
 }
 
@@ -23,11 +23,8 @@ void Backtracker::push(const State &state) {
     }
 }
 
-const State &Backtracker::peek() const {
-    return states.front().first;
-}
-
 State Backtracker::draw() {
+    Logger::log(LogLevel::Info, "States left: " + std::to_string(states.size()));
     if (states.empty()) {
         return {};
     }
@@ -36,6 +33,9 @@ State Backtracker::draw() {
         return states.front().first;
     }
     states.pop_front();
+    if (states.empty()) {
+        return {};
+    }
     return states.front().first;
 }
 
@@ -92,12 +92,6 @@ void Backtracker::setLastIteration(size_t lastIteration) {
 }
 
 void Backtracker::logStates() const {
-    //print out how every state looks with total count of last vector
-    /*
-     * [1 2 3 4]
-     * [1 2 3 4]
-     * [1 2 3 4]
-     */
     for (const auto &state: states) {
         for (const auto &row: state.first.state) {
             for (const auto &cell: row) {

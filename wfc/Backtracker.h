@@ -11,6 +11,8 @@
 #include <cstddef>
 #include <iostream>
 
+#include "../utility/Logger.h"
+
 using imageState = std::vector<std::vector<std::vector<bool>>>;
 using collapsedState = std::vector<std::vector<int>>;
 
@@ -35,7 +37,6 @@ public:
     void pushBacktrackedState(const State& state);
     void mergeBacktrackedStates();
     State draw();
-    [[nodiscard]] const State& peek() const;
     bool isEnabled() const;
     void setEnabled(bool enabled);
     void setOptions(const BacktrackerOptions& options);
@@ -48,10 +49,9 @@ public:
 private:
     std::deque<std::pair<State, size_t>> states;
     std::deque<State> backtrackedStates;
-    BacktrackerOptions options;
+    BacktrackerOptions options{};
     size_t lastIteration;
-    bool backtracking;
+    bool backtracking{};
 };
-
 
 #endif //WFC_BACKTRACKER_H
