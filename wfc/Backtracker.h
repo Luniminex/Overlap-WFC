@@ -32,16 +32,16 @@ struct BacktrackerOptions {
 class Backtracker {
 public:
     Backtracker();
-    Backtracker(BacktrackerOptions options);
+    explicit Backtracker(BacktrackerOptions options);
     void push(const State& state);
     void pushBacktrackedState(const State& state);
     void mergeBacktrackedStates();
     State draw();
-    bool isEnabled() const;
+    [[nodiscard]] bool isEnabled() const;
     void setEnabled(bool enabled);
     void setOptions(const BacktrackerOptions& options);
     void setBacktracking(bool backtracking);
-    bool isBacktracking() const;
+    [[nodiscard]] bool isBacktracking() const;
     void setLastIteration(size_t lastIteration);
     [[nodiscard]] bool isAbleToBacktrack() const;
     [[nodiscard]] size_t getLastIteration() const;
