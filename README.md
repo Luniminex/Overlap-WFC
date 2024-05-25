@@ -2,7 +2,7 @@
 
 This is a C++ implementation of Overlap Wave Function Collapse.
 
-## How it works
+## :computer: How it works
 
 This implementation is split into three parts. Analyzer, Backtracker and the WFC.
 
@@ -103,7 +103,7 @@ the current iteration to the last iteration when it found a contradiction.
 
 </details>
 
-## How to install
+## :hammer: How to install
 
 ### Linux
 
@@ -144,7 +144,7 @@ If you see the output image, it should work as intended.
 
 When you run either of them without any arguments
 
-## How to use
+## :rocket: How to use
 
 This repository contains a simple example of how to use the Overlap Wave Function Collapse algorithm.
 It uses cxxopts https://github.com/jarro2783/cxxopts for parsing command line arguments.
@@ -164,7 +164,7 @@ You can also use the help command to see all available options:
 
 I have only tested this on Linux. If you use windows I strongly recommend using WSL for this.
 
-### Notes
+### :memo: Notes
 
 please note that this is my understanding of the WFC and it could be wrong. If you find any mistakes or have any 
 suggestions feel free to correct me or suggest changes.
