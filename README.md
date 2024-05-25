@@ -164,7 +164,7 @@ You can also use the help command to see all available options:
 
 I have only tested this on Linux. If you use windows I strongly recommend using WSL for this.
 
-### :memo: Notes
+## :memo: Notes
 
 please note that this is my understanding of the WFC and it could be wrong. If you find any mistakes or have any 
 suggestions feel free to correct me or suggest changes.
