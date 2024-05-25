@@ -84,7 +84,6 @@ will arrive at contradiction. This happens when any cell in a grid will have no 
 collapse into. When this happens contradiction is found and the algorithm will either backtrack or stop.
 </details>
 
-
 <details>
 <summary>Learn about backtracker</summary>
 
@@ -104,7 +103,48 @@ the current iteration to the last iteration when it found a contradiction.
 
 </details>
 
-### How to use
+## How to install
+
+### Linux
+
+Because this project uses cimg you need to download dependencies first via apt or any other package manager you use.
+
+```shell
+apt-get install libx11-dev
+apt-get install libjpeg-dev
+apt-get install libpng-dev
+```
+
+Then you can clone the repository and create build directory
+
+```shell
+git clone https://github.com/Luniminex/Overlap-WFC.git
+cd Overlap-WFC
+mkdir build
+cd build
+```
+
+Next, you need to compile the project. You can do this by running the following commands:
+
+```shell
+cmake ..
+make
+```
+
+Now you have two executables in the build directory. The first one is WFC which does not have any optimazations and
+the second one is WFC_optimized which uses the -O3 flag for optimization.
+
+```shell
+./WFC
+cd ../outputs/solutions/
+explorer.exe solution.png //shows the output image, or use ls to see if it was created
+```
+
+If you see the output image, it should work as intended.
+
+When you run either of them without any arguments
+
+## How to use
 
 This repository contains a simple example of how to use the Overlap Wave Function Collapse algorithm.
 It uses cxxopts https://github.com/jarro2783/cxxopts for parsing command line arguments.
@@ -119,6 +159,10 @@ You can also use the help command to see all available options:
 ```shell
 ./wfc -h
 ```
+
+### Windows and other platforms
+
+I have only tested this on Linux. If you use windows I strongly recommend using WSL for this.
 
 ### Notes
 

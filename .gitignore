@@ -19,3 +19,4 @@ output.txt
 /cmake-build-release
 /cmake-build-release-wsl
 /wfc.log
+.idea

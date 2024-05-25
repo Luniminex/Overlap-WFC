@@ -26,7 +26,7 @@ void setLogFile(cxxopts::ParseResult &result) {
     if (useLogFile.empty()) {
         Util::Logger::setLogLevel(Util::LogLevel::Silent);
     } else {
-        freopen(useLogFile.c_str(), "w", stdout);
+        (void)freopen(useLogFile.c_str(), "w", stdout);
     }
 }
 
