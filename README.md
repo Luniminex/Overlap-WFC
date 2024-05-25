@@ -142,7 +142,10 @@ explorer.exe solution.png //shows the output image, or use ls to see if it was c
 
 If you see the output image, it should work as intended.
 
-When you run either of them without any arguments
+
+### Windows and other platforms
+
+I have only tested this on Linux. If you use windows I strongly recommend using WSL for this.
 
 ## :rocket: How to use
 
@@ -159,11 +162,6 @@ You can also use the help command to see all available options:
 ```shell
 ./wfc -h
 ```
-
-### Windows and other platforms
-
-I have only tested this on Linux. If you use windows I strongly recommend using WSL for this.
-
 ## :memo: Notes
 
 please note that this is my understanding of the WFC and it could be wrong. If you find any mistakes or have any 
