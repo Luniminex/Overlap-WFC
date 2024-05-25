@@ -4,26 +4,26 @@
 
 #include "Backtracker.h"
 
-Backtracker::Backtracker() {
+WFC::Backtracker::Backtracker() {
     options = {0, 0, false};
     lastIteration = 0;
     states = std::deque<std::pair<State, size_t>>();
 }
 
-Backtracker::Backtracker(BacktrackerOptions options) : options(options) {
+WFC::Backtracker::Backtracker(BacktrackerOptions options) : options(options) {
     lastIteration = 0;
     backtracking = false;
     states = std::deque<std::pair<State, size_t>>();
 }
 
-void Backtracker::push(const State &state) {
+void WFC::Backtracker::push(const State &state) {
     states.emplace_front(state, options.maxIterations);
     if (states.size() > options.maxDepth) {
         states.pop_back();
     }
 }
 
-State Backtracker::draw() {
+WFC::State WFC::Backtracker::draw() {
     if (states.empty()) {
         return {};
     }
@@ -38,45 +38,45 @@ State Backtracker::draw() {
     return states.front().first;
 }
 
-bool Backtracker::isEnabled() const {
+bool WFC::Backtracker::isEnabled() const {
     return options.enabled;
 }
 
-void Backtracker::setEnabled(bool enabled) {
+void WFC::Backtracker::setEnabled(bool enabled) {
     options.enabled = enabled;
 }
 
-void Backtracker::setOptions(const BacktrackerOptions &options) {
+void WFC::Backtracker::setOptions(const BacktrackerOptions &options) {
     this->options = options;
 }
 
-bool Backtracker::isAbleToBacktrack() const {
+bool WFC::Backtracker::isAbleToBacktrack() const {
     return !states.empty();
 }
 
-size_t Backtracker::getLastIteration() const {
+size_t WFC::Backtracker::getLastIteration() const {
     return lastIteration;
 }
 
-void Backtracker::setBacktracking(bool backtracking) {
+void WFC::Backtracker::setBacktracking(bool backtracking) {
     this->backtracking = backtracking;
 }
 
-bool Backtracker::isBacktracking() const {
+bool WFC::Backtracker::isBacktracking() const {
     if (options.enabled) {
         return backtracking;
     }
     return false;
 }
 
-void Backtracker::pushBacktrackedState(const State &state) {
+void WFC::Backtracker::pushBacktrackedState(const State &state) {
     backtrackedStates.push_front(state);
     if (backtrackedStates.size() > options.maxDepth) {
         backtrackedStates.pop_back();
     }
 }
 
-void Backtracker::mergeBacktrackedStates() {
+void WFC::Backtracker::mergeBacktrackedStates() {
     if (backtrackedStates.empty()) {
         return;
     }
@@ -86,11 +86,11 @@ void Backtracker::mergeBacktrackedStates() {
     backtrackedStates.clear();
 }
 
-void Backtracker::setLastIteration(size_t lastIteration) {
+void WFC::Backtracker::setLastIteration(size_t lastIteration) {
     this->lastIteration = lastIteration;
 }
 
-void Backtracker::logStates() const {
+void WFC::Backtracker::logStates() const {
     for (const auto &state: states) {
         for (const auto &row: state.first.state) {
             for (const auto &cell: row) {

@@ -7,26 +7,30 @@
 
 #include <iostream>
 
-enum class LogLevel {
-    Debug = 0,
-    Info = 1,
-    Warning = 2,
-    Error = 3,
-    NoLevel = 4
-};
+namespace Util {
+    enum class LogLevel {
+        Debug = 0,
+        Info = 1,
+        Warning = 2,
+        Error = 3,
+        Important = 4,
+        Silent = 5
+    };
 
-class Logger {
-public:
+    class Logger {
+    public:
 
-    static void log(LogLevel level, const std::string_view &message);
+        static void log(LogLevel level, const std::string_view &message);
 
-    static void setLogLevel(LogLevel level);
+        static void setLogLevel(LogLevel level);
 
-private:
-    Logger() = default;
-    ~Logger() = default;
-    static LogLevel currentLevel;
-};
+    private:
+        Logger() = default;
 
+        ~Logger() = default;
+
+        static LogLevel currentLevel;
+    };
+}
 
 #endif //WFC_LOGGER_H

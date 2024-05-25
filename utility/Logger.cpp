@@ -4,9 +4,9 @@
 
 #include "Logger.h"
 
-LogLevel Logger::currentLevel = LogLevel::Info;
+Util::LogLevel Util::Logger::currentLevel = LogLevel::Info;
 
-void Logger::log(LogLevel level, const std::string_view &message)  {
+void Util::Logger::log(LogLevel level, const std::string_view &message) {
     if (level >= currentLevel) {
         switch (level) {
             case LogLevel::Debug:
@@ -21,12 +21,15 @@ void Logger::log(LogLevel level, const std::string_view &message)  {
             case LogLevel::Error:
                 std::cout << "[Error] " << message << std::endl;
                 break;
-            case LogLevel::NoLevel:
+            case LogLevel::Important:
+                std::cout << "[Important] " << message << std::endl;
+                break;
+            case LogLevel::Silent:
                 break;
         }
     }
 }
 
-void Logger::setLogLevel(LogLevel level)  {
+void Util::Logger::setLogLevel(LogLevel level) {
     currentLevel = level;
 }

@@ -5,19 +5,19 @@
 
 #include "Timer.h"
 
-Timer::Timer(const std::string_view &function_name) {
+Util::Timer::Timer(const std::string_view &function_name) {
     this->function_name = function_name;
     Logger::log(LogLevel::Info, "Starting " + std::string(function_name));
     this->start = std::chrono::high_resolution_clock::now();
 }
 
-Timer::~Timer() {
+Util::Timer::~Timer() {
     this->end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = this->end - this->start;
     Logger::log(LogLevel::Info, "Finished " + std::string(function_name) + " in " + std::to_string(duration.count()) + "s");
 }
 
-std::chrono::duration<double> Timer::getCurrent() {
+std::chrono::duration<double> Util::Timer::getCurrent() {
     this->end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = this->end - this->start;
     Logger::log(LogLevel::Info,

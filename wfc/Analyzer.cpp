@@ -5,40 +5,36 @@
 #include "Analyzer.h"
 
 
-Analyzer::Analyzer(AnalyzerOptions &options, const std::string_view pathToInputImage) :
+WFC::Analyzer::Analyzer(AnalyzerOptions &options, std::string_view pathToInputImage) :
 options(options)
 {
     this->inputImage = cimg::CImg<unsigned char>(pathToInputImage.data());
-    Logger::log(LogLevel::Info,
+    Util::Logger::log(Util::LogLevel::Info,
                 "Loaded pathToInputImage from " + std::string(pathToInputImage) + " with size " +
                 std::to_string(this->inputImage.width()) + "x" +
                 std::to_string(this->inputImage.height()));
 
-    Logger::log(LogLevel::Info, "Pattern size set to: " + std::to_string(options.patternSize));
+    Util::Logger::log(Util::LogLevel::Info, "Pattern size set to: " + std::to_string(options.patternSize));
 }
 
-void Analyzer::setOptions(const AnalyzerOptions &options) {
+void WFC::Analyzer::setOptions(const AnalyzerOptions &options) {
     this->options = options;
 }
 
-const cimg::CImg<unsigned char>& Analyzer::getInputImage() const {
+const cimg::CImg<unsigned char>& WFC::Analyzer::getInputImage() const {
     return inputImage;
 }
 
-bool Analyzer::analyze() {
-    bool success = generatePatterns();
-    if (!success) {
-        return false;
-    }
+void WFC::Analyzer::analyze() {
+    generatePatterns();
     generateOffsets();
     generateRules();
     logRules();
     calculateProbabilities();
-    return success;
 }
 
-bool Analyzer::generatePatterns(){
-    Timer timer("generatePatterns");
+void WFC::Analyzer::generatePatterns(){
+    Util::Timer timer("generatePatterns");
     size_t totalPatterns = 0;
     for (size_t x = 0; x <= inputImage.width() - options.patternSize; x++) {
         for (size_t y = 0; y <= inputImage.height() - options.patternSize; y++) {
@@ -61,13 +57,11 @@ bool Analyzer::generatePatterns(){
             }
         }
     }
-    Logger::log(LogLevel::Info, "Total possible patterns:  " + std::to_string(totalPatterns));
-    Logger::log(LogLevel::Info, "Generated " + std::to_string(patterns.size()) + " patterns");
-
-    return true;
+    Util::Logger::log(Util::LogLevel::Info, "Total possible patterns:  " + std::to_string(totalPatterns));
+    Util::Logger::log(Util::LogLevel::Info, "Generated " + std::to_string(patterns.size()) + " patterns");
 }
 
-void Analyzer::generateOffsets() {
+void WFC::Analyzer::generateOffsets() {
     int size = static_cast<int>(options.patternSize - 1);
     offsets.reserve((2 * size + 1) * (2 * size + 1) - 1);
     for (int i = -size; i <= size; i++) {
@@ -80,8 +74,8 @@ void Analyzer::generateOffsets() {
     }
 }
 
-void Analyzer::generateRules() {
-    Timer timer("generateRules");
+void WFC::Analyzer::generateRules() {
+    Util::Timer timer("generateRules");
     rules.resize(patterns.size());
 
     //iterate over all patterns
@@ -97,33 +91,33 @@ void Analyzer::generateRules() {
                 }
             }
             if (rules[i][offset].empty()) {
-                Logger::log(LogLevel::Info, "No rule found for pattern " + std::to_string(i) + " at offset (" + std::to_string(offset.x) + ", " + std::to_string(offset.y) + ")");
+                Util::Logger::log(Util::LogLevel::Info, "No rule found for pattern " + std::to_string(i) + " at offset (" + std::to_string(offset.x) + ", " + std::to_string(offset.y) + ")");
             }
         }
     }
 }
 
-bool Analyzer::checkForMatch(const cimg::CImg<unsigned char> &p1, const cimg::CImg<unsigned char> &p2,
-                        const Point &offset) const {
+bool WFC::Analyzer::checkForMatch(const cimg::CImg<unsigned char> &p1, const cimg::CImg<unsigned char> &p2,
+                        const Util::Point &offset) const {
     cimg::CImg<unsigned char> p1Offset = maskWithOffset(p1, offset);
-    cimg::CImg<unsigned char> p2Offset = maskWithOffset(p2, Point(-offset.x, -offset.y));
+    cimg::CImg<unsigned char> p2Offset = maskWithOffset(p2, Util::Point(-offset.x, -offset.y));
     return p1Offset == p2Offset;
 }
 
-cimg::CImg<unsigned char> Analyzer::maskWithOffset(const cimg::CImg<unsigned char> &pattern, const Point &offset) const {
+cimg::CImg<unsigned char> WFC::Analyzer::maskWithOffset(const cimg::CImg<unsigned char> &pattern, const Util::Point &offset) const {
     //check bounds
     if (abs(offset.x) > pattern.width() || abs(offset.y) > pattern.height()) {
         return {};
     }
-    Point p1 = {std::max(0, offset.x), std::max(0, offset.y)};
-    Point p2 = {std::min(pattern.width() - 1, pattern.width() - 1 + offset.x),
+    Util::Point p1 = {std::max(0, offset.x), std::max(0, offset.y)};
+    Util::Point p2 = {std::min(pattern.width() - 1, pattern.width() - 1 + offset.x),
                 std::min(pattern.height() - 1, pattern.height() - 1 + offset.y)};;
 
     auto crop = pattern.get_crop(p1.x, p1.y, p2.x, p2.y);
     return crop;
 }
 
-void Analyzer::logRules() {
+void WFC::Analyzer::logRules() {
     std::vector<size_t> totalRulesPerPattern(rules.size(), 0);
 
     for (size_t i = 0; i < rules.size(); i++) {
@@ -134,12 +128,12 @@ void Analyzer::logRules() {
 
     //log the total number of rules for each pattern
     for (size_t i = 0; i < totalRulesPerPattern.size(); i++) {
-        Logger::log(LogLevel::Debug, "Total number of rules for pattern " + std::to_string(i) + " is " +
+        Util::Logger::log(Util::LogLevel::Debug, "Total number of rules for pattern " + std::to_string(i) + " is " +
                                      std::to_string(totalRulesPerPattern[i]));
     }
 
     for (size_t patternIndex = 0; patternIndex < patterns.size(); ++patternIndex) {
-        Logger::log(LogLevel::Debug, "Pattern number " + std::to_string(patternIndex) + ":");
+        Util::Logger::log(Util::LogLevel::Debug, "Pattern number " + std::to_string(patternIndex) + ":");
         for (const auto &offset: offsets) {
             std::string possiblePatternsStr;
             auto it = rules[patternIndex].find(offset);
@@ -150,14 +144,14 @@ void Analyzer::logRules() {
                     possiblePatternsStr += std::to_string(pattern) + ", ";
                 }
             }
-            Logger::log(LogLevel::Debug,
+            Util::Logger::log(Util::LogLevel::Debug,
                         "key: (" + std::to_string(offset.x) + ", " + std::to_string(offset.y) + "), values: {" +
                         possiblePatternsStr + "}");
         }
     }
 }
 
-void Analyzer::addPattern(const cimg::CImg<unsigned char> &pattern) {
+void WFC::Analyzer::addPattern(const cimg::CImg<unsigned char> &pattern) {
     std::string patternStr = patternToStr(pattern);
     if (patternFrequency.find(patternStr) == patternFrequency.end()) {
         patternFrequency[patternStr] = 1;
@@ -167,7 +161,7 @@ void Analyzer::addPattern(const cimg::CImg<unsigned char> &pattern) {
     }
 }
 
-std::string Analyzer::patternToStr(const cimg::CImg<unsigned char> &pattern) const {
+std::string WFC::Analyzer::patternToStr(const cimg::CImg<unsigned char> &pattern) const {
     std::string patternKey;
     patternKey.reserve(pattern.width() * pattern.height() * pattern.spectrum() * 4);
     for (int x = 0; x < pattern.width(); ++x) {
@@ -180,7 +174,7 @@ std::string Analyzer::patternToStr(const cimg::CImg<unsigned char> &pattern) con
     return patternKey;
 }
 
-void Analyzer::calculateProbabilities() {
+void WFC::Analyzer::calculateProbabilities() {
     //calculate sum of all frequencies
     sumFrequency = std::accumulate(patternFrequency.begin(), patternFrequency.end(), 0.0,
                                    [](double acc, const auto &p) {
@@ -201,9 +195,9 @@ void Analyzer::calculateProbabilities() {
     LogProbabilities();
 }
 
-void Analyzer::savePatternsPreviewTo(const std::string &path) {
-    Logger::log(LogLevel::Info, "Generating pattern image preview");
-    Timer timer("savePatternsPreviewTo");
+void WFC::Analyzer::savePatternsPreviewTo(const std::string &path) {
+    Util::Logger::log(Util::LogLevel::Info, "Generating pattern image preview");
+    Util::Timer timer("savePatternsPreviewTo");
     size_t scaledPatternSize = options.previewImgScale * options.patternSize;
     auto [rows, cols] = getPatternGridSize();
     auto sb = options.spaceBetween;
@@ -258,11 +252,13 @@ void Analyzer::savePatternsPreviewTo(const std::string &path) {
             }
         }
     }
-
-    generatedPatternsImage.save_png(path.c_str());
+    Util::FileUtil::checkDirectory(path);
+    std::string filePath = path + "/patterns_preview.png";
+    filePath = Util::FileUtil::getUniqueFileName(filePath);
+    generatedPatternsImage.save_png(filePath.c_str());
 }
 
-std::tuple<size_t, size_t> Analyzer::getPatternGridSize() {
+std::tuple<size_t, size_t> WFC::Analyzer::getPatternGridSize() {
     size_t patternsSize = patterns.size();
     auto sqrtPatternsCount = static_cast<unsigned int>(std::sqrt(patternsSize));
     unsigned int rows = sqrtPatternsCount;
@@ -277,35 +273,35 @@ std::tuple<size_t, size_t> Analyzer::getPatternGridSize() {
     return {rows, cols};
 }
 
-const AnalyzerOptions &Analyzer::getOptions() const {
+const WFC::AnalyzerOptions &WFC::Analyzer::getOptions() const {
     return options;
 }
 
-const std::vector<cimg::CImg<unsigned char>> &Analyzer::getPatterns() const {
+const std::vector<cimg::CImg<unsigned char>> &WFC::Analyzer::getPatterns() const {
     return patterns;
 }
 
-const std::vector<double>& Analyzer::getProbs() const {
+const std::vector<double>& WFC::Analyzer::getProbabilities() const {
     return probabilities;
 }
 
-const std::vector<Point> &Analyzer::getOffsets() const {
+const std::vector<Util::Point> &WFC::Analyzer::getOffsets() const {
     return offsets;
 }
 
-const Rules &Analyzer::getRules() const {
+const WFC::Rules &WFC::Analyzer::getRules() const {
     return rules;
 }
 
-void Analyzer::LogProbabilities() {
+void WFC::Analyzer::LogProbabilities() {
     //sum up all probabilities
     double sum = std::accumulate(probabilities.begin(), probabilities.end(), 0.0);
-    Logger::log(LogLevel::Debug, "Sum of all probabilities: " + std::to_string(sum));
+    Util::Logger::log(Util::LogLevel::Debug, "Sum of all probabilities: " + std::to_string(sum));
 
     //match pattern to its probability and print it via Logger
     for (size_t i = 0; i < patterns.size(); ++i) {
         std::string patternStr = patternToStr(patterns[i]);
-        Logger::log(LogLevel::Debug, "Pattern " + patternStr + " has probability: " +
+        Util::Logger::log(Util::LogLevel::Debug, "Pattern " + patternStr + " has probability: " +
                                      std::to_string(probabilities[i]));
     }
 }

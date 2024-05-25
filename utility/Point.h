@@ -8,19 +8,26 @@
 #include <cstddef>
 #include <functional>
 
-struct Point {
-    int x;
-    int y;
+namespace Util {
+    struct Point {
+        int x;
+        int y;
 
-    Point(int x = 0, int y = 0);
-    bool operator==(const Point &other) const;
-    bool operator!=(const Point &other) const;
-    Point operator+(const Point &other) const;
-    Point operator-(const Point &other) const;
-    bool operator<(const Point &other) const;
-};
+        Point(int x = 0, int y = 0);
 
-struct PointHash {
-    std::size_t operator()(const Point &p) const;
-};
+        bool operator==(const Point &other) const;
+
+        bool operator!=(const Point &other) const;
+
+        Point operator+(const Point &other) const;
+
+        Point operator-(const Point &other) const;
+
+        bool operator<(const Point &other) const;
+    };
+
+    struct PointHash {
+        std::size_t operator()(const Point &p) const;
+    };
+}
 #endif //WFC_POINT_H

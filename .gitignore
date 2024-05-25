@@ -2,3 +2,20 @@
 /cmake-build-debug/
 /cmake-build-wsl/
 output.txt
+
+#ignore dir contents but not the directories
+/outputs/failed/*
+!/outputs/failed/
+/outputs/solutions/*
+!/outputs/solutions/
+/outputs/iterations/*
+!/outputs/iterations/
+/outputs/patterns/*
+!/outputs/patterns/
+/cmake-build-debug-wsl
+/cmake-build-debug
+/cmake-build-wsl
+/cmake-build
+/cmake-build-release
+/cmake-build-release-wsl
+/wfc.log

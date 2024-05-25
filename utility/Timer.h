@@ -9,16 +9,21 @@
 #include <chrono>
 #include "Logger.h"
 
-class Timer {
-public:
-    Timer(const std::string_view& function_name);
-    std::chrono::duration<double> getCurrent();
-    ~Timer();
-private:
-    std::string function_name;
-    std::chrono::time_point<std::chrono::high_resolution_clock> start;
-    std::chrono::time_point<std::chrono::high_resolution_clock> end;
-};
+namespace Util {
 
+    class Timer {
+    public:
+        Timer(const std::string_view &function_name);
+
+        std::chrono::duration<double> getCurrent();
+
+        ~Timer();
+
+    private:
+        std::string function_name;
+        std::chrono::time_point<std::chrono::high_resolution_clock> start;
+        std::chrono::time_point<std::chrono::high_resolution_clock> end;
+    };
+}
 
 #endif //WFC_TIMER_H

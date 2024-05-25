@@ -5,7 +5,7 @@
 #include "WFC.h"
 
 
-WFC::WFC(const std::string_view &pathToInputImage, AnalyzerOptions &options, BacktrackerOptions &backtrackerOptions,
+WFC::WFC::WFC(const std::string_view &pathToInputImage, AnalyzerOptions &options, BacktrackerOptions &backtrackerOptions,
          size_t width, size_t height) :
         analyzer(options, pathToInputImage),
         backtracker(backtrackerOptions),
@@ -14,34 +14,35 @@ WFC::WFC(const std::string_view &pathToInputImage, AnalyzerOptions &options, Bac
                           "../outputs/patterns/generated-patterns.png",
                           "../outputs/solution.png",
                           "../outputs/failed-solution.png",
-                          "../outputs/iterations/"
+                          "../outputs/iterations/",
+                          true
                   }),
         status(WFCStatus::PREPARING) {
     outWidth = width;
     outHeight = height;
     state.iteration = 0;
-    Logger::log(LogLevel::Info, "WFC initialized and is ready to start");
+    Util::Logger::log(Util::LogLevel::Info, "WFC initialized and is ready to start");
 }
 
-void WFC::setAnalyzerOptions(const AnalyzerOptions &options) {
+void WFC::WFC::setAnalyzerOptions(const AnalyzerOptions &options) {
     analyzer.setOptions(options);
 }
 
-void WFC::enableBacktracker() {
+void WFC::WFC::enableBacktracker() {
     backtracker.setEnabled(true);
 }
 
-void WFC::disableBacktracker() {
+void WFC::WFC::disableBacktracker() {
     backtracker.setEnabled(false);
 }
 
-void WFC::setBacktrackerOptions(const BacktrackerOptions &options) {
+void WFC::WFC::setBacktrackerOptions(const BacktrackerOptions &options) {
     backtracker.setOptions(options);
 }
 
-bool WFC::prepareWFC(bool savePatterns) {
-    bool success = analyzer.analyze();
-
+void WFC::WFC::prepareWFC() {
+    analyzer.analyze();
+    createDirectories();
     //initialize coeff matrix to be outputSize x outputSize x unique patterns count
     logState();
     state.state = std::vector<std::vector<std::vector<bool>>>(
@@ -52,126 +53,130 @@ bool WFC::prepareWFC(bool savePatterns) {
     logState();
     //initialize collapsed tiles to be outputSize x outputSize with invalid value
     state.collapsed = std::vector<std::vector<int>>(outHeight, std::vector<int>(outWidth, -1));
-    if (savePatterns) {
-        analyzer.savePatternsPreviewTo(savePaths.generatedPatternsPath);
+    if (savePaths.savePatterns) {
+        analyzer.savePatternsPreviewTo(savePaths.generatedPatternsDir);
     }
-    return success;
 }
 
-void WFC::setSavePaths(const WFCSavePaths &paths) {
+void WFC::WFC::setSavePaths(const WFCSavePaths &paths) {
     savePaths = paths;
 }
 
-bool WFC::startWFC(bool saveIterations) {
-    Timer timer("startWFC");
+bool WFC::WFC::startWFC() {
+    Util::Timer timer("startWFC");
     status = WFCStatus::RUNNING;
     size_t globalIterations = 0;
     while (status == WFCStatus::RUNNING) {
-        Logger::log(LogLevel::Debug, "Iteration: " + std::to_string(state.iteration));
+        Util::Logger::log(Util::LogLevel::Debug, "Iteration: " + std::to_string(state.iteration));
 
         auto lowestEntropy = Observe();
 
         if (status == WFCStatus::CONTRADICTION) {
-            Logger::log(LogLevel::Info, "Contradiction found");
+            Util::Logger::log(Util::LogLevel::Important, "Contradiction found");
+            //display the last entropy matrix if contradiction was found
             std::vector<std::vector<double>> entropyMatrix(outHeight,
                                                            std::vector<double>(outWidth, 0.0));
             fillEntropyMatrix(entropyMatrix);
-            displayOutputImage(savePaths.failedOutputImagePath);
+
+            saveOutputImage();
             break;
         }
 
         if (status == WFCStatus::SOLUTION) {
-            Logger::log(LogLevel::Info, "Solution found");
-            displayOutputImage(savePaths.outputImagePath);
+            Util::Logger::log(Util::LogLevel::Important, "Solution found");
+            saveOutputImage();
             break;
         }
 
         //if backtracking on, skip propagation
-        if (lowestEntropy != Point(-1, -1)) {
+        if (lowestEntropy != Util::Point(-1, -1)) {
             propagate(lowestEntropy);
             state.iteration++;
         }
 
-        if (saveIterations) {
+        if (savePaths.savePatterns) {
             displayOutputImage(
-                    savePaths.iterationsDir + "g" + std::to_string(globalIterations) + "_l" +
+                    savePaths.iterationsDir,
+                    "g" + std::to_string(globalIterations) + "_l" +
                     std::to_string(state.iteration) +
-                    ".png");
+                    ".png", false);
         }
 
         globalIterations++;
     }
-    Logger::log(LogLevel::Info, "WFC finished in " + std::to_string(state.iteration) + " iterations");
+    Util::Logger::log(Util::LogLevel::Info, "WFC finished in " + std::to_string(state.iteration) + " iterations");
     return status == WFCStatus::SOLUTION;
 }
 
-Point WFC::Observe() {
+Util::Point WFC::WFC::Observe() {
     static std::chrono::duration<double> observeTime;
-    Timer timer("Observe function");
+    Util::Timer timer("Observe function");
 
-    Logger::log(LogLevel::Debug, "backtrack check");
+    Util::Logger::log(Util::LogLevel::Debug, "backtrack check");
     if (backtracker.isBacktracking()) {
         if (backtracker.getLastIteration() == state.iteration) {
             backtracker.setBacktracking(false);
             backtracker.mergeBacktrackedStates();
-            Logger::log(LogLevel::Debug, "Ended backtracking");
+            Util::Logger::log(Util::LogLevel::Debug, "Ended backtracking");
         }
     }
 
-    Point minEntropyPoint{-1, -1};
+    Util::Point minEntropyPoint{-1, -1};
     //calculate entropy for each cell
     std::vector<std::vector<double>> entropyMatrix(outHeight,
                                                    std::vector<double>(outWidth, 0.0));
-    Logger::log(LogLevel::Debug, "filling entropy");
     //log entropy matrix
-    logEntropyMatrix(entropyMatrix);
     fillEntropyMatrix(entropyMatrix);
+    logEntropyMatrix(entropyMatrix);
 
-    Logger::log(LogLevel::Debug, "checking contradiction");
+    Util::Logger::log(Util::LogLevel::Debug, "checking contradiction");
     if (!checkForContradiction()) {
         if (backtracker.isEnabled() && backtracker.isAbleToBacktrack()) {
             //if just started to backtrack, set this as the last iteration that it should aim for
             if (!backtracker.isBacktracking()) {
                 backtracker.setLastIteration(state.iteration + 1);
             }
-            Logger::log(LogLevel::Debug, "Drawing from backtracker");
+            Util::Logger::log(Util::LogLevel::Debug, "Drawing from backtracker");
             state = backtracker.draw();
             if (!backtracker.isAbleToBacktrack()) {
                 status = WFCStatus::CONTRADICTION;
             }
             backtracker.setBacktracking(true);
-            Logger::log(LogLevel::Debug, "Backtracking");
+            Util::Logger::log(Util::LogLevel::Debug, "Backtracking");
         } else {
-            Logger::log(LogLevel::Info, "Contradiction found");
+            Util::Logger::log(Util::LogLevel::Info, "Contradiction found");
             status = WFCStatus::CONTRADICTION;
         }
-        Logger::log(LogLevel::Debug, "was found, returning min point");
+        Util::Logger::log(Util::LogLevel::Debug, "was found, returning min point");
         return minEntropyPoint;
     } else {
-        Logger::log(LogLevel::Debug, "finding min entropy point");
+        Util::Logger::log(Util::LogLevel::Debug, "finding min entropy point");
         std::vector<double> minEntropyProbabilities;
         std::tie(minEntropyPoint, minEntropyProbabilities) = findMinEntropyPoint(entropyMatrix);
         if (status == WFCStatus::SOLUTION) {
             return minEntropyPoint;
         }
-        Logger::log(LogLevel::Debug, "found, starting to collapse");
+        Util::Logger::log(Util::LogLevel::Debug, "found, starting to collapse");
         collapseCell(minEntropyPoint, minEntropyProbabilities);
     }
     return minEntropyPoint;
 }
 
-void WFC::fillEntropyMatrix(std::vector<std::vector<double>> &entropyMatrix) {
+void WFC::WFC::createDirectories() {
+    Util::FileUtil::checkDirectory(savePaths.generatedPatternsDir);
+    Util::FileUtil::checkDirectory(savePaths.outputImageDir);
+    Util::FileUtil::checkDirectory(savePaths.failedOutputImageDir);
+    Util::FileUtil::checkDirectory(savePaths.iterationsDir);
+    savePaths.iterationsDir = Util::FileUtil::checkAndCreateUniqueDirectory(savePaths.iterationsDir + "iteration") + "/";
+}
+
+void WFC::WFC::fillEntropyMatrix(std::vector<std::vector<double>> &entropyMatrix) {
     for (size_t i = 0; i < outHeight; i++) {
         for (size_t j = 0; j < outWidth; j++) {
             //log which for which point its checking
-            Logger::log(LogLevel::Debug,
+            Util::Logger::log(Util::LogLevel::Debug,
                         "calculating entropy for point: " + std::to_string(j) + " " + std::to_string(i));
             entropyMatrix[i][j] = getShannonEntropy({static_cast<int>(j), static_cast<int>(i)});
-            /*for (size_t k = 0; k < coeffMatrix[i][j].size(); ++k) {
-                if (coeffMatrix[i][j][k]) {
-                    entropyMatrix[i][j] += probabilities[k];
-                }
-            }*/
         }
     }
     logEntropyMatrix(entropyMatrix);
@@ -187,7 +192,7 @@ void WFC::fillEntropyMatrix(std::vector<std::vector<double>> &entropyMatrix) {
     logEntropyMatrix(entropyMatrix);
 }
 
-bool WFC::checkForContradiction() const {
+bool WFC::WFC::checkForContradiction() const {
     //if any cell has no possible patterns then there is a contradiction
     for (size_t i = 0; i < outHeight; i++) {
         for (size_t j = 0; j < outWidth; j++) {
@@ -199,12 +204,12 @@ bool WFC::checkForContradiction() const {
     return true;
 }
 
-double WFC::getShannonEntropy(const Point &p) const {
+double WFC::WFC::getShannonEntropy(const Util::Point &p) const {
     double sumWeights = 0;
     double sumLogWeights = 0;
     for (size_t option = 0; option < state.state.at(p.y).at(p.x).size(); option++) {
         if (state.state.at(p.y).at(p.x).at(option)) {
-            double weight = analyzer.getProbs().at(option);
+            double weight = analyzer.getProbabilities().at(option);
             sumWeights += weight;
             sumLogWeights += weight * std::log(weight);
         }
@@ -216,10 +221,10 @@ double WFC::getShannonEntropy(const Point &p) const {
     return std::log(sumWeights) - (sumLogWeights / sumWeights);
 }
 
-std::pair<Point, std::vector<double>>
-WFC::findMinEntropyPoint(std::vector<std::vector<double>> &entropyMatrix) {
+std::pair<Util::Point, std::vector<double>>
+WFC::WFC::findMinEntropyPoint(std::vector<std::vector<double>> &entropyMatrix) {
     double minEntropy = std::numeric_limits<double>::max();
-    Point minPoint(-1, -1);
+    Util::Point minPoint(-1, -1);
 
     //find the minimum entropy, if all collapsed, min point is -1, -1
     for (int i = 0; i < entropyMatrix.size(); i++) {
@@ -229,7 +234,7 @@ WFC::findMinEntropyPoint(std::vector<std::vector<double>> &entropyMatrix) {
             }
             if (entropyMatrix[i][j] > 0 && entropyMatrix[i][j] < minEntropy) {
                 minEntropy = entropyMatrix[i][j];
-                minPoint = Point(j, i);
+                minPoint = Util::Point(j, i);
             }
         }
     }
@@ -241,7 +246,7 @@ WFC::findMinEntropyPoint(std::vector<std::vector<double>> &entropyMatrix) {
     }
 
     //finds all possible points with that min entropy
-    std::vector<Point> minEntropyPositions;
+    std::vector<Util::Point> minEntropyPositions;
     for (int i = 0; i < entropyMatrix.size(); i++) {
         for (int j = 0; j < entropyMatrix[i].size(); j++) {
             if (state.collapsed[i][j] != -1) {
@@ -263,15 +268,14 @@ WFC::findMinEntropyPoint(std::vector<std::vector<double>> &entropyMatrix) {
     std::vector<double> minEntropyProbabilities(state.state[minPoint.y][minPoint.x].size());
     for (size_t k = 0; k < state.state[minPoint.y][minPoint.x].size(); k++) {
         //if that pattern is possible, get its probability, else set it to 0
-        minEntropyProbabilities[k] = state.state[minPoint.y][minPoint.x][k] ? analyzer.getProbs()[k] : 0.0;
+        minEntropyProbabilities[k] = state.state[minPoint.y][minPoint.x][k] ? analyzer.getProbabilities()[k] : 0.0;
     }
 
     return {minPoint, minEntropyProbabilities};
 }
 
-void WFC::collapseCell(const Point &p, std::vector<double> &probabilities) {
+void WFC::WFC::collapseCell(const Util::Point &p, std::vector<double> &probabilities) {
     static std::chrono::duration<double> collapseTime;
-    Timer timer("collapse function");
 
     //if is backtracking enabled and is currently not in backtracking, remember the state
     if (backtracker.isEnabled()) {
@@ -292,20 +296,19 @@ void WFC::collapseCell(const Point &p, std::vector<double> &probabilities) {
     }
 }
 
-void
-WFC::propagate(Point &minEntropyPoint) {
+void WFC::WFC::propagate(Util::Point &minEntropyPoint) {
     static std::chrono::duration<double> propagationTime;
-    Timer timer("propagate function");
-    std::deque<Point> propagationQueue;
-    std::set<Point> visited;
+    Util::Timer timer("propagate function");
+    std::deque<Util::Point> propagationQueue;
+    std::set<Util::Point> visited;
     propagationQueue.push_back(minEntropyPoint);
     visited.insert(minEntropyPoint);
     while (!propagationQueue.empty()) {
-        Point currentPoint = propagationQueue.front();
+        Util::Point currentPoint = propagationQueue.front();
         propagationQueue.pop_front();
         for (const auto &offset: analyzer.getOffsets()) {
             //get neighbor pos from current pos and offset
-            Point neighborPoint = wrapPoint(currentPoint, offset);
+            Util::Point neighborPoint = wrapPoint(currentPoint, offset);
 
             //if neighbor is not valid or is collapsed already, skip it
             if (!isPointValid(neighborPoint) || state.collapsed[neighborPoint.y][neighborPoint.x] != -1) {
@@ -328,7 +331,7 @@ WFC::propagate(Point &minEntropyPoint) {
 }
 
 std::pair<bool, bool>
-WFC::updateCell(const Point &current, const Point &neighbour, const Point &offset) {
+WFC::WFC::updateCell(const Util::Point &current, const Util::Point &neighbour, const Util::Point &offset) {
     //patterns for current and neighbour cell
     std::vector<bool> &currentPatterns = state.state[current.y][current.x];
     std::vector<bool> &neighbourPatterns = state.state[neighbour.y][neighbour.x];
@@ -369,20 +372,20 @@ WFC::updateCell(const Point &current, const Point &neighbour, const Point &offse
     return {isUpdated, isCollapsed};
 }
 
-Point WFC::wrapPoint(const Point &p, const Point &offset) const {
-    Point wrappedPoint = p + offset;
+Util::Point WFC::WFC::wrapPoint(const Util::Point &p, const Util::Point &offset) const {
+    Util::Point wrappedPoint = p + offset;
     wrappedPoint.x = (wrappedPoint.x + static_cast<int>(outWidth)) % static_cast<int>(outWidth);
     wrappedPoint.y = (wrappedPoint.y + static_cast<int>(outHeight)) % static_cast<int>(outHeight);
     return wrappedPoint;
 }
 
-bool WFC::isPointValid(const Point &p) const {
+bool WFC::WFC::isPointValid(const Util::Point &p) const {
     return p.x >= 0 && p.y >= 0 && p.x < outWidth && p.y < outHeight;
 }
 
-void WFC::displayOutputImage(const std::string &path) const {
+void WFC::WFC::displayOutputImage(const std::string &dir, const std::string &fileName, bool checkForUniqueFilename) const {
     if (state.state.empty()) {
-        Logger::log(LogLevel::Error, "State is empty, unable to display image");
+        Util::Logger::log(Util::LogLevel::Error, "State is empty, unable to display image");
         return;
     }
 
@@ -412,10 +415,17 @@ void WFC::displayOutputImage(const std::string &path) const {
         }
     }
     res.resize(static_cast<int>(outWidth), static_cast<int>(outHeight), 1, 3, 1);
-    res.save_png(path.c_str());
+
+    //directory + file name
+    std::string filePath = dir + fileName;
+    if (checkForUniqueFilename) {
+        filePath = Util::FileUtil::getUniqueFileName(filePath);
+    }
+
+    res.save_png(filePath.c_str());
 }
 
-void WFC::logEntropyMatrix(const std::vector<std::vector<double>> &entropyMatrix) const {
+void WFC::WFC::logEntropyMatrix(const std::vector<std::vector<double>> &entropyMatrix) const {
     std::stringstream ss;
     for (const auto &i: entropyMatrix) {
         ss << "[ ";
@@ -424,10 +434,10 @@ void WFC::logEntropyMatrix(const std::vector<std::vector<double>> &entropyMatrix
         }
         ss << "]\n";
     }
-    Logger::log(LogLevel::Debug, "Entropy matrix: \n" + ss.str());
+    Util::Logger::log(Util::LogLevel::Debug, "Entropy matrix: \n" + ss.str());
 }
 
-void WFC::logState() {
+void WFC::WFC::logState() {
     std::stringstream ss;
     for (auto &i: state.state) {
         ss << "[ ";
@@ -438,5 +448,54 @@ void WFC::logState() {
         ss << " ] ";
         ss << "\n";
     }
-    Logger::log(LogLevel::Debug, "State: \n" + ss.str());
+    Util::Logger::log(Util::LogLevel::Debug, "State: \n" + ss.str());
+}
+
+void WFC::WFC::saveOutputImage() {
+    //i had the height and weight switched for god knows how long and god damn it took me so long to fix this
+    outputImage = cimg_library::CImg<unsigned char>(outWidth, outHeight, 1, 3, 0);
+    for (int y = 0; y < outHeight; y++) {
+        for (int x = 0; x < outWidth; x++) {
+            std::vector<cimg_library::CImg<unsigned char>> validPatterns;
+            for (int pattern = 0; pattern < analyzer.getPatterns().size(); pattern++) {
+                if (state.state.at(y).at(x).at(pattern)) {
+                    validPatterns.emplace_back(analyzer.getPatterns().at(pattern));
+                }
+            }
+            if (!validPatterns.empty()) {
+                cimg_library::CImg<unsigned char> meanPattern = validPatterns[0];
+                if (validPatterns.size() > 1) {
+                    for (size_t i = 1; i < validPatterns.size(); i++) {
+                        meanPattern += validPatterns[i];
+                    }
+                }
+                meanPattern /= validPatterns.size();
+
+                outputImage(x, y, 0) = meanPattern(0, 0, 0);
+                outputImage(x, y, 1) = meanPattern(0, 0, 1);
+                outputImage(x, y, 2) = meanPattern(0, 0, 2);
+            }
+        }
+    }
+}
+
+void WFC::WFC::saveOutput() const {
+    std::string fileName;
+    std::string dir;
+    if(status == WFCStatus::SOLUTION) {
+        fileName = "solution.png";
+        dir = savePaths.outputImageDir;
+    }
+    else if(status == WFCStatus::CONTRADICTION) {
+        fileName = "contradiction.png";
+        dir = savePaths.failedOutputImageDir;
+    }
+    else {
+        Util::Logger::log(Util::LogLevel::Error, "Cannot save output, WFC did not finish");
+        return;
+    }
+
+    std::string filePath = dir + fileName;
+    filePath = Util::FileUtil::getUniqueFileName(filePath);
+    outputImage.save_png(filePath.c_str());
 }

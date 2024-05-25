@@ -20,7 +20,11 @@ add_executable(WFC main.cpp
         utility/Point.cpp
         utility/Point.h
         wfc/Backtracker.cpp
-        wfc/Backtracker.h)
+        wfc/Backtracker.h
+        utility/CLI.cpp
+        utility/CLI.h
+        utility/FileUtil.cpp
+        utility/FileUtil.h)
 
 target_link_libraries(WFC PRIVATE PNG::PNG X11::X11)
 
@@ -37,7 +41,11 @@ add_executable(WFC_optimized main.cpp
         utility/Point.cpp
         utility/Point.h
         wfc/Backtracker.cpp
-        wfc/Backtracker.h)
+        wfc/Backtracker.h
+        utility/CLI.cpp
+        utility/CLI.h
+        utility/FileUtil.cpp
+        utility/FileUtil.h)
 
 target_link_libraries(WFC_optimized PRIVATE PNG::PNG X11::X11)
 
