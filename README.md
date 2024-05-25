@@ -9,7 +9,7 @@ This implementation is split into three parts. Analyzer, Backtracker and the WFC
 First the Analyzer reads the input image from which it extracts patterns with their frequencies and rules.
 
 <details>
-<summary> Learn more about patterns and rules </summary>
+<summary> ❓ Learn more about patterns and rules </summary>
 <h3>Patterns</h3>
 are the sub-images of the input image. They are extracted by sliding a window of size `pattern_size` over
 the input image and storing the sub-image in a list if it is not already present. This is done by converting the
@@ -58,7 +58,7 @@ After the Analyzer has extracted the patterns and rules the WFC can start genera
 algorithm will try to backtrack if it arrives at contradiction.
 
 <details>
-<summary>Lear more about how algorithm generates the image</summary>
+<summary> ❓ Lear more about how algorithm generates the image</summary>
 
 
 - Before the WFC starts generating the output image, it first creates a grid that represents the current state of the
@@ -85,7 +85,7 @@ collapse into. When this happens contradiction is found and the algorithm will e
 </details>
 
 <details>
-<summary>Learn about backtracker</summary>
+<summary> ❓ Learn about backtracker</summary>
 
 In simple terms, the backtracker is a way to go to previous state of the algorithm whenever it finds a contradiction
 and to try a different solution.
